@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SatanAI</title>
+    
+    <link rel="icon" href="{{ url_for('static', filename='ico.ico') }}" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.1/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'DM Sans', sans-serif; background: #FCF8F8; color: #2D1515; height: 100vh; overflow: hidden; display: flex; position: relative;}
+        
+        @keyframes satan-blink { 0%, 80%, 100% { opacity: 0.18; transform: scale(0.75); } 40% { opacity: 1; transform: scale(1); } }
+        @keyframes satan-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes satan-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+        /* Sidebar Styling */
+        .sb-panel { width: 272px; display: flex; flex-direction: column; background: #FCF8F8; border-right: 1px solid #F9DFDF; flex-shrink: 0; z-index: 50; }
+        .sb-top { display: flex; align-items: center; padding: 0 1rem; height: 62px; border-bottom: 1px solid #F9DFDF; gap: 10px; }
+        .sb-brand-logo { width: 28px; height: 28px; border-radius: 8px; object-fit: cover; border: 1px solid #F5AFAF; }
+        .sb-brand-name { font-family: 'Playfair Display', serif; font-size: 1.0625rem; font-weight: 700; color: #2D1515; }
+        
+        .sb-new-wrap { padding: 0.875rem; border-bottom: 1px solid #F9DFDF; }
+        .sb-new-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; background: linear-gradient(145deg, #E87878, #C85050); color: #fff; border: none; border-radius: 14px; padding: 0.75rem 1rem; font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: transform 0.2s; }
+        .sb-new-btn:hover { transform: translateY(-1px); }
+        
+        /* History Item */
+        .sb-history-area { flex: 1; overflow-y: auto; padding: 1rem; border-bottom: 1px solid #F9DFDF; }
+        .sb-history-wrap { display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0.6rem; border-radius: 8px; cursor: pointer; transition: background 0.2s; margin-bottom: 2px;}
+        .sb-history-wrap:hover, .sb-history-wrap.active { background: #FBEFEF; }
+        .sb-history-wrap:hover .sb-history-actions { opacity: 1; }
+        
+        .sb-history-item { flex: 1; text-align: left; background: transparent; border: none; font-family: inherit; font-size: 0.85rem; color: #4A2020; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px;}
+        .sb-history-wrap.active .sb-history-item { color: #C85050; font-weight: 600; }
+        
+        .sb-history-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.2s; }
+        .action-icon { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 4px; border: none; background: transparent; cursor: pointer; color: #C08080; }
+        .action-icon:hover { background: #F5AFAF; color: #7A2020; }
+        .action-icon.pinned { color: #C85050; opacity: 1; }
+
+        /* Configuration */
+        .sb-config-area { padding: 1rem; background: #FFFBFB; }
+        .api-input { width: 100%; padding: 0.6rem; border: 1px solid #F9DFDF; border-radius: 8px; font-family: inherit; font-size: 0.75rem; margin-bottom: 10px; outline: none; }
+        .api-input:focus { border-color: #F5AFAF; }
+
+        /* Main Shell */
+        .s-shell { display: flex; flex-direction: column; flex: 1; height: 100%; background: #FCF8F8; min-width: 0; position: relative;}
+        .s-header { display: flex; align-items: center; justify-content: space-between; padding: 0 1.75rem; height: 62px; background: rgba(252,248,248,0.9); border-bottom: 1px solid #F9DFDF; }
+        .s-name { font-family: 'Playfair Display', serif; font-size: 1.1875rem; font-weight: 700; color: #2D1515; }
+        
+        .s-scroll { flex: 1; overflow-y: auto; padding: 2.5rem 1rem; }
+        .s-inner { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; }
+        
+        /* Empty State */
+        .s-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 50vh; text-align: center; gap: 1.375rem; animation: satan-up 0.55s ease; }
+        .s-orb { width: 72px; height: 72px; border-radius: 20px; overflow: hidden; border: 2px solid #F5AFAF; animation: satan-float 4s ease-in-out infinite; }
+        .s-orb img { width: 100%; height: 100%; object-fit: cover; }
+        .s-empty-title { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; color: #2D1515; letter-spacing: -0.04em; }
+        
+        /* Chat Rows */
+        .s-row { display: flex; flex-direction: column; padding: 0.5rem 0; animation: satan-up 0.22s ease; }
+        .s-row-user { align-items: flex-end; }
+        .s-row-ai { align-items: flex-start; }
+        .s-user { max-width: 68%; background: linear-gradient(145deg, #E87878 0%, #C85050 100%); color: #fff; border-radius: 20px 20px 5px 20px; padding: 0.875rem 1.25rem; font-size: 0.9375rem; line-height: 1.68; white-space: pre-wrap; word-break: break-word;}
+        .s-ai-head { font-size: 0.7rem; font-weight: 700; color: #C08080; text-transform: uppercase; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 6px; }
+        .s-ai-head-avatar { width: 20px; height: 20px; border-radius: 6px; border: 1px solid #F5AFAF; object-fit: cover; }
+        .s-ai-bubble { width: 100%; background: #fff; border: 1px solid #F9DFDF; border-radius: 5px 20px 20px 20px; padding: 1.25rem 1.5rem 1rem; color: #4A2020; font-size: 0.9375rem; line-height: 1.75; }
+        
+        /* AI Content Formatting */
+        .s-ai-bubble p { margin-bottom: 0.9rem; }
+        
+        /* Code Block Wrapper */
+        .code-wrapper { background: #FFF8F8; border: 1px solid #F5AFAF; border-radius: 10px; overflow: hidden; margin: 1rem 0; }
+        .code-header { background: #FBEFEF; border-bottom: 1px solid #F5AFAF; padding: 6px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #B05050; font-family: 'JetBrains Mono', monospace; }
+        .copy-code-btn { background: #F9DFDF; border: 1px solid #F5AFAF; border-radius: 6px; padding: 2px 8px; font-size: 0.7rem; color: #A03030; cursor: pointer; transition: 0.2s; }
+        .copy-code-btn:hover { background: #F5AFAF; color: #7A2020; }
+        .code-wrapper pre { margin: 0; padding: 1rem; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; }
+        .s-ai-bubble code { font-family: 'JetBrains Mono', monospace; background: #FBEFEF; color: #B05050; padding: 0.15em 0.45em; border-radius: 5px; }
+        .code-wrapper pre code { background: transparent; padding: 0; color: inherit; }
+
+        /* Thinking Indicator */
+        .thinking-box { display: flex; align-items: center; gap: 10px; padding: 0.875rem 1.25rem; background: #fff; border: 1px solid #F9DFDF; border-radius: 6px 18px 18px 18px; width: fit-content; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; background: #E08080; display: inline-block; }
+        .dot:nth-child(1) { animation: satan-blink 1.4s ease-in-out 0ms infinite; }
+        .dot:nth-child(2) { animation: satan-blink 1.4s ease-in-out 160ms infinite; }
+        .dot:nth-child(3) { animation: satan-blink 1.4s ease-in-out 320ms infinite; }
+
+        /* Quoting feature (Use This) */
+        #floating-use-btn { position: absolute; display: none; z-index: 100; background: #2D1515; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transform: translate(-50%, -100%); }
+        #floating-use-btn:hover { background: #C85050; }
+        
+        #quote-preview { display: none; background: #FBEFEF; border: 1px solid #F5AFAF; border-radius: 12px; padding: 10px 14px; margin-bottom: 10px; font-size: 0.85rem; color: #8A4040; font-style: italic; position: relative; border-left: 4px solid #C85050; }
+        .clear-quote { position: absolute; top: 6px; right: 8px; cursor: pointer; color: #C08080; font-weight: bold; }
+        .clear-quote:hover { color: #A03030; }
+
+        /* Footer Input */
+        .s-footer { padding: 0.875rem 1rem 1.25rem; background: linear-gradient(to top, #FCF8F8 72%, transparent); }
+        .s-ibox { display: flex; align-items: flex-end; background: #fff; border: 1.5px solid #F5AFAF; border-radius: 18px; padding: 0.75rem 0.75rem 0.75rem 1.375rem; }
+        .s-textarea { flex: 1; background: transparent; border: none; outline: none; resize: none; font-size: 0.9375rem; padding: 10px 0; font-family: inherit; }
+        .s-send { width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(145deg, #E87878, #C85050); border: none; color: #fff; cursor: pointer; flex-shrink:0; }
+        .s-send:disabled { opacity: 0.5; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <!-- Floating Use This Button -->
+    <button id="floating-use-btn" onclick="useSelectedText()">Use This</button>
+
+    <!-- Sidebar -->
+    <div class="sb-panel">
+        <div class="sb-top">
+            <img src="{{ url_for('static', filename='logo.png') }}" class="sb-brand-logo" alt="SatanAI">
+            <span class="sb-brand-name">SatanAI</span>
+        </div>
+        <div class="sb-new-wrap">
+            <button class="sb-new-btn" onclick="newChat()">+ New Conversation</button>
+        </div>
+        
+        <div class="sb-history-area" id="history-list">
+            <div style="font-size: 0.65rem; font-weight: 700; color: #D4A0A0; text-transform: uppercase; margin-bottom: 10px;">Recent Chats</div>
+        </div>
+
+        <div class="sb-config-area">
+            <label style="font-size: 0.65rem; font-weight: 700; color: #D4A0A0; text-transform: uppercase;">Configuration</label>
+            <input type="text" id="base-url" class="api-input" style="margin-top: 8px;" value="https://generativelanguage.googleapis.com/v1beta" placeholder="Base URL" />
+            <input type="text" id="model-name" class="api-input" value="gemini-1.5-flash" placeholder="Model Name" />
+            <input type="password" id="api-key" class="api-input" style="margin-bottom: 0;" placeholder="API Key" />
+        </div>
+    </div>
+
+    <!-- Main Chat Interface -->
+    <div class="s-shell">
+        <header class="s-header">
+            <span class="s-name" id="chat-header-title">New Chat</span>
+        </header>
+
+        <div class="s-scroll" id="scroll-area">
+            <div class="s-inner" id="chat-container">
+                <div class="s-empty" id="empty-state">
+                    <div class="s-orb"><img src="{{ url_for('static', filename='logo.png') }}" alt="Orb"></div>
+                    <h2 class="s-empty-title">What can I help<br />you with?</h2>
+                </div>
+            </div>
+            
+            <div class="s-inner">
+                <div class="s-row s-row-ai" id="thinking-indicator" style="display: none;">
+                    <div class="s-ai-head">
+                        <img src="{{ url_for('static', filename='logo.png') }}" class="s-ai-head-avatar">SatanAI
+                    </div>
+                    <div class="thinking-box">
+                        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                        <span style="font-size: 0.8rem; color: #B06060; font-style: italic; margin-left: 5px;">Thinking...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="s-footer">
+            <div class="s-inner">
+                <!-- Quote Preview Container -->
+                <div id="quote-preview">
+                    <span class="clear-quote" onclick="clearQuote()">×</span>
+                    <strong>Replying to:</strong> <br>
+                    <span id="quote-text"></span>
+                </div>
+                
+                <div class="s-ibox">
+                    <textarea id="chat-input" class="s-textarea" rows="1" placeholder="Message SatanAI..."></textarea>
+                    <button id="send-btn" class="s-send" onclick="sendMessage()">↑</button>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Custom Marked.js Renderer for Code Blocks with Copy Button
+        const renderer = new marked.Renderer();
+        renderer.code = function(code, lang) {
+            const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+            const highlighted = hljs.highlight(code, { language }).value;
+            // Store raw code in a data attribute encoded to base64 to avoid HTML breaking
+            const base64Code = btoa(unescape(encodeURIComponent(code)));
+            return `
+            <div class="code-wrapper">
+                <div class="code-header">
+                    <span>${language}</span>
+                    <button class="copy-code-btn" onclick="copyCode(this, '${base64Code}')">Copy</button>
+                </div>
+                <pre><code class="hljs ${language}">${highlighted}</code></pre>
+            </div>`;
+        };
+        marked.setOptions({ renderer: renderer });
+
+        // Copy Code Function
+        function copyCode(btn, base64Code) {
+            const text = decodeURIComponent(escape(atob(base64Code)));
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = btn.innerText;
+                btn.innerText = "Copied!";
+                setTimeout(() => btn.innerText = originalText, 2000);
+            });
+        }
+
+        // Selected Text (Use This) Functionality
+        let currentQuote = "";
+        const floatingBtn = document.getElementById('floating-use-btn');
+        const chatContainer = document.getElementById('scroll-area');
+
+        chatContainer.addEventListener('mouseup', function(e) {
+            const selection = window.getSelection();
+            const text = selection.toString().trim();
+            
+            if (text.length > 0) {
+                // Position button near mouse
+                floatingBtn.style.display = 'block';
+                floatingBtn.style.left = e.pageX + 'px';
+                floatingBtn.style.top = (e.pageY - 15) + 'px';
+            } else if (e.target !== floatingBtn) {
+                floatingBtn.style.display = 'none';
+            }
+        });
+
+        // Hide floating button when clicking elsewhere
+        document.addEventListener('mousedown', function(e) {
+            if (e.target !== floatingBtn) {
+                floatingBtn.style.display = 'none';
+            }
+        });
+
+        function useSelectedText() {
+            const selection = window.getSelection();
+            currentQuote = selection.toString().trim();
+            
+            if (currentQuote) {
+                document.getElementById('quote-preview').style.display = 'block';
+                // Truncate preview if too long
+                let previewText = currentQuote;
+                if(previewText.length > 150) previewText = previewText.substring(0, 150) + "...";
+                document.getElementById('quote-text').innerText = `"${previewText}"`;
+                document.getElementById('chat-input').focus();
+            }
+            floatingBtn.style.display = 'none';
+            selection.removeAllRanges();
+        }
+
+        function clearQuote() {
+            currentQuote = "";
+            document.getElementById('quote-preview').style.display = 'none';
+        }
+
+        let messages = [];
+        let currentThreadId = null;
+        const logoPath = "{{ url_for('static', filename='logo.png') }}";
+
+        // Icons
+        const iconPin = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>`;
+        const iconTrash = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>`;
+        const iconEdit = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
+
+        window.onload = loadHistory;
+
+        async function loadHistory() {
+            try {
+                const res = await fetch('/api/threads');
+                const data = await res.json();
+                const list = document.getElementById('history-list');
+                list.innerHTML = `<div style="font-size: 0.65rem; font-weight: 700; color: #D4A0A0; text-transform: uppercase; margin-bottom: 10px;">Recent Chats</div>`;
+                
+                data.threads.forEach(thread => {
+                    const isActive = currentThreadId === thread.id ? 'active' : '';
+                    const pinClass = thread.is_pinned ? 'pinned' : '';
+                    const safeTitle = thread.title.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+                    
+                    list.innerHTML += `
+                        <div class="sb-history-wrap ${isActive}" onclick="selectThread(${thread.id}, '${safeTitle}')">
+                            <button class="sb-history-item">${thread.title}</button>
+                            <div class="sb-history-actions ${pinClass}">
+                                <button class="action-icon" onclick="renameThread(${thread.id}, '${safeTitle}', event)" title="Rename Chat">${iconEdit}</button>
+                                <button class="action-icon ${pinClass}" onclick="togglePin(${thread.id}, event)" title="Pin Chat">${iconPin}</button>
+                                <button class="action-icon" onclick="deleteThread(${thread.id}, event)" title="Delete Chat">${iconTrash}</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (error) {
+                console.error("DEBUG History Error:", error);
+            }
+        }
+
+        async function renameThread(id, oldTitle, event) {
+            event.stopPropagation();
+            const newTitle = prompt("Enter new chat name:", oldTitle);
+            if (newTitle && newTitle.trim() !== "" && newTitle !== oldTitle) {
+                try {
+                    await fetch(`/api/threads/${id}/rename`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ title: newTitle.trim() })
+                    });
+                    if (currentThreadId === id) document.getElementById('chat-header-title').innerText = newTitle.trim();
+                    loadHistory();
+                } catch (e) { console.error("Rename failed:", e); }
+            }
+        }
+
+        async function deleteThread(id, event) {
+            event.stopPropagation();
+            if (!confirm("Are you sure you want to delete this chat?")) return;
+            try {
+                await fetch(`/api/threads/${id}`, { method: 'DELETE' });
+                if (currentThreadId === id) newChat(); 
+                else loadHistory();
+            } catch (e) { console.error("Delete failed:", e); }
+        }
+
+        async function togglePin(id, event) {
+            event.stopPropagation();
+            try {
+                await fetch(`/api/threads/${id}/pin`, { method: 'PATCH' });
+                loadHistory(); 
+            } catch (e) { console.error("Pin failed:", e); }
+        }
+
+        async function selectThread(id, title) {
+            currentThreadId = id;
+            document.getElementById('chat-header-title').innerText = title;
+            loadHistory();
+            
+            try {
+                const res = await fetch(`/api/threads/${id}/messages`);
+                const data = await res.json();
+                
+                messages = data.messages;
+                const container = document.getElementById('chat-container');
+                container.innerHTML = "";
+                
+                messages.forEach(msg => {
+                    if (msg.role === "user") {
+                        container.innerHTML += `<div class="s-row s-row-user"><div class="s-user">${msg.content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div></div>`;
+                    } else {
+                        container.innerHTML += `
+                        <div class="s-row s-row-ai">
+                            <div class="s-ai-head"><img src="${logoPath}" class="s-ai-head-avatar">SatanAI</div>
+                            <div class="s-ai-bubble">${marked.parse(msg.content)}</div>
+                        </div>`;
+                    }
+                });
+                scrollToBottom();
+            } catch (error) { console.error("DEBUG Load Messages Error:", error); }
+        }
+
+        function newChat() {
+            messages = [];
+            currentThreadId = null;
+            clearQuote();
+            document.getElementById('chat-header-title').innerText = "New Chat";
+            document.getElementById('chat-container').innerHTML = `
+                <div class="s-empty" id="empty-state">
+                    <div class="s-orb"><img src="${logoPath}" alt="Orb"></div>
+                    <h2 class="s-empty-title">What can I help<br />you with?</h2>
+                </div>
+            `;
+            loadHistory();
+        }
+
+        function scrollToBottom() {
+            const scrollArea = document.getElementById('scroll-area');
+            scrollArea.scrollTop = scrollArea.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const inputEl = document.getElementById('chat-input');
+            const rawText = inputEl.value.trim();
+            const baseUrl = document.getElementById('base-url').value.trim();
+            const modelName = document.getElementById('model-name').value.trim();
+            const apiKey = document.getElementById('api-key').value.trim();
+
+            if (!rawText) return;
+            if (!baseUrl || !modelName) {
+                alert("Please ensure Base URL and Model Name are configured.");
+                return;
+            }
+
+            // Construct payload: Add quoted text if available
+            let finalUserPayload = rawText;
+            let displayUserText = rawText;
+            
+            if (currentQuote !== "") {
+                finalUserPayload = `Context:\n"""\n${currentQuote}\n"""\n\n${rawText}`;
+                // Visually show what they replied to in the chat box
+                displayUserText = `> "${currentQuote}"\n\n${rawText}`;
+                clearQuote();
+            }
+
+            if (!currentThreadId) {
+                try {
+                    const title = rawText.length > 25 ? rawText.substring(0, 25) + "..." : rawText;
+                    const res = await fetch('/api/threads', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ title: title })
+                    });
+                    const data = await res.json();
+                    currentThreadId = data.thread_id;
+                    document.getElementById('chat-header-title').innerText = title;
+                    loadHistory();
+                } catch (error) { console.error("DEBUG Thread Creation Error:", error); }
+            }
+
+            inputEl.value = '';
+            inputEl.disabled = true;
+            document.getElementById('send-btn').disabled = true;
+            document.getElementById('thinking-indicator').style.display = 'flex';
+
+            const container = document.getElementById('chat-container');
+            const empty = document.getElementById('empty-state');
+            if(empty) empty.remove();
+
+            container.insertAdjacentHTML('beforeend', `<div class="s-row s-row-user"><div class="s-user">${displayUserText.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div></div>`);
+            scrollToBottom();
+            
+            // Push actual contextual message to AI
+            messages.push({ role: "user", content: finalUserPayload });
+
+            const bubbleId = 'ai-msg-' + Date.now();
+            container.insertAdjacentHTML('beforeend', `
+            <div class="s-row s-row-ai">
+                <div class="s-ai-head"><img src="${logoPath}" class="s-ai-head-avatar">SatanAI</div>
+                <div class="s-ai-bubble" id="${bubbleId}"></div>
+            </div>`);
+            const aiBubble = document.getElementById(bubbleId);
+            scrollToBottom();
+
+            try {
+                // The AI receives the whole 'messages' array, including recent history + the new contextual prompt
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        messages: messages, 
+                        base_url: baseUrl,
+                        model: modelName,
+                        api_key: apiKey,
+                        thread_id: currentThreadId
+                    })
+                });
+
+                document.getElementById('thinking-indicator').style.display = 'none';
+
+                if (!response.ok) {
+                    aiBubble.innerHTML = `<span style='color:red'><strong>Error ${response.status}:</strong> The backend encountered a problem. Check console or API credentials.</span>`;
+                    return;
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullAiText = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                            try {
+                                const data = JSON.parse(line.substring(6));
+                                if (data.error) {
+                                    aiBubble.innerHTML += `<br><span style='color:red'><strong>API Error:</strong> ${data.error}</span>`;
+                                    break;
+                                }
+                                if(data.text) {
+                                    fullAiText += data.text;
+                                    aiBubble.innerHTML = marked.parse(fullAiText);
+                                    scrollToBottom();
+                                }
+                            } catch (e) {}
+                        }
+                    }
+                }
+                messages.push({ role: "ai", content: fullAiText });
+
+            } catch (error) {
+                document.getElementById('thinking-indicator').style.display = 'none';
+                aiBubble.innerHTML = "<p style='color:red;'><strong>Network Error:</strong> Failed to connect to Flask backend.</p>";
+            } finally {
+                inputEl.disabled = false;
+                document.getElementById('send-btn').disabled = false;
+                inputEl.focus();
+            }
+        }
+
+        document.getElementById('chat-input').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
