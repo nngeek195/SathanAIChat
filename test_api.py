@@ -2,10 +2,17 @@ import json
 import requests
 import sqlite3
 import datetime
+import os
+import base64
 from flask import Flask, render_template, request, Response, jsonify
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 DB_FILE = "satan_history.db"
+UPLOAD_FOLDER = os.path.join('static', 'uploads')
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # --------------------------------------------------------------------------
 # Database Manager Layer
@@ -19,8 +26,8 @@ class DatabaseManager:
         cursor = self.conn.cursor()
         cursor.execute('''CREATE TABLE IF NOT EXISTS threads (id INTEGER PRIMARY KEY, title TEXT, updated_at TEXT)''')
         cursor.execute('''CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, thread_id INTEGER, role TEXT, content TEXT, FOREIGN KEY(thread_id) REFERENCES threads(id))''')
-        
         cursor.execute('''CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY, base_url TEXT, model_name TEXT, api_key TEXT)''')
+        
         cursor.execute("SELECT COUNT(*) FROM settings")
         if cursor.fetchone()[0] == 0:
             cursor.execute("INSERT INTO settings (id, base_url, model_name, api_key) VALUES (1, 'https://generativelanguage.googleapis.com/v1beta', 'gemini-1.5-flash', '')")
@@ -162,6 +169,43 @@ def truncate_thread(thread_id):
     db.truncate_thread(thread_id, request.json.get("message_id"))
     return jsonify({"success": True})
 
+@app.route('/api/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file chunk found"}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "Empty filename submitted"}), 400
+        
+    filename = secure_filename(f"{int(datetime.datetime.now().timestamp())}_{file.filename}")
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
+    
+    return jsonify({
+        "success": True, 
+        "filename": file.filename, 
+        "url": f"/static/uploads/{filename}"
+    })
+
+@app.route('/api/upload-text', methods=['POST'])
+def upload_large_text():
+    data = request.json
+    text_content = data.get('text', '')
+    if not text_content:
+        return jsonify({"error": "No text content"}), 400
+        
+    filename = secure_filename(f"pasted_text_{int(datetime.datetime.now().timestamp())}.txt")
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write(text_content)
+        
+    return jsonify({
+        "success": True,
+        "filename": filename,
+        "url": f"/static/uploads/{filename}"
+    })
+
 @app.route('/api/chat', methods=['POST'])
 def chat():
     data = request.json
@@ -171,18 +215,53 @@ def chat():
     api_key = data.get('api_key', '').strip()
     thread_id = data.get('thread_id')
     
+    active_image = data.get('active_image')
+    
     if not base_url or not model:
         return jsonify({"error": "Base URL and Model Name are required"}), 400
 
+    # Save ONLY the user's actual typed message to the DB, not the invisible system prompt
     if thread_id and len(messages) > 0 and messages[-1]['role'] == 'user':
         db.save_message(thread_id, "user", messages[-1]['content'])
+
+    # --- INVISIBLE SYSTEM PROMPT INJECTION ---
+    SYSTEM_PROMPT = {
+        "role": "system", 
+        "content": "You are currently running inside the SatanAI interface, an advanced custom application developed by Niranga Kumara. If you are asked about the developer, the creator of this interface, or Niranga, you must provide his LinkedIn profile (https://lk.linkedin.com/in/niranga-nayanajith) and express gratitude to him for building this platform."
+    }
 
     def generate():
         ai_response_cache = ""
         try:
+            # -------------------------------------------------------------
+            # GEMINI API ROUTING
+            # -------------------------------------------------------------
             if "generativelanguage" in base_url:
                 url = f"{base_url}/models/{model}:streamGenerateContent?alt=sse&key={api_key}"
-                payload = {"contents": [{"role": "model" if m["role"] == "ai" else "user", "parts": [{"text": m["content"]}]} for m in messages]}
+                
+                contents = []
+                
+                # Gemini handles system instructions differently in the payload
+                system_instruction = {"parts": [{"text": SYSTEM_PROMPT["content"]}]}
+                
+                for m in messages:
+                    contents.append({"role": "model" if m["role"] == "ai" else "user", "parts": [{"text": m["content"]}]})
+                
+                if active_image and len(contents) > 0 and contents[-1]["role"] == "user":
+                    contents[-1]["parts"].append({
+                        "inlineData": {
+                            "mimeType": active_image["mime_type"],
+                            "data": active_image["base64"]
+                        }
+                    })
+
+                # Note: stream_options for token usage isn't universally supported in the same way on Gemini yet, 
+                # but we structure the payload correctly.
+                payload = {
+                    "systemInstruction": system_instruction,
+                    "contents": contents
+                }
+                
                 with requests.post(url, json=payload, headers={'Content-Type': 'application/json'}, stream=True) as r:
                     if r.status_code != 200:
                         yield f"data: {json.dumps({'error': f'API Error {r.status_code}: {r.text}'})}\n\n"
@@ -192,15 +271,53 @@ def chat():
                             decoded = line.decode('utf-8')
                             if decoded.startswith("data: ") and decoded != "data: [DONE]":
                                 try:
-                                    chunk = json.loads(decoded[6:])['candidates'][0]['content']['parts'][0]['text']
-                                    ai_response_cache += chunk
-                                    yield f"data: {json.dumps({'text': chunk})}\n\n"
+                                    json_data = json.loads(decoded[6:])
+                                    
+                                    if 'candidates' in json_data and len(json_data['candidates']) > 0:
+                                        chunk = json_data['candidates'][0]['content']['parts'][0]['text']
+                                        ai_response_cache += chunk
+                                        yield f"data: {json.dumps({'text': chunk})}\n\n"
+                                        
+                                    # Gemini Token Usage parsing
+                                    if 'usageMetadata' in json_data:
+                                        usage = {
+                                            "prompt_tokens": json_data['usageMetadata'].get('promptTokenCount', 0),
+                                            "completion_tokens": json_data['usageMetadata'].get('candidatesTokenCount', 0),
+                                            "total_tokens": json_data['usageMetadata'].get('totalTokenCount', 0)
+                                        }
+                                        yield f"data: {json.dumps({'usage': usage})}\n\n"
+                                        
                                 except Exception: pass
+            
+            # -------------------------------------------------------------
+            # STANDARD OPENAI / NVIDIA ROUTING
+            # -------------------------------------------------------------
             else:
                 url = f"{base_url}/chat/completions" if not base_url.endswith("/chat/completions") else base_url
-                payload = {"model": model, "messages": [{"role": "assistant" if m["role"] == "ai" else "user", "content": m["content"]} for m in messages], "stream": True}
+                
+                # Prepend the invisible system prompt to the message stack
+                formatted_messages = [SYSTEM_PROMPT]
+                
+                for m in messages:
+                    formatted_messages.append({"role": "assistant" if m["role"] == "ai" else "user", "content": m["content"]})
+                
+                if active_image and len(formatted_messages) > 0 and formatted_messages[-1]["role"] == "user":
+                    text_prompt = formatted_messages[-1]["content"]
+                    formatted_messages[-1]["content"] = [
+                        {"type": "text", "text": text_prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:{active_image['mime_type']};base64,{active_image['base64']}"}}
+                    ]
+
+                payload = {
+                    "model": model, 
+                    "messages": formatted_messages, 
+                    "stream": True,
+                    "stream_options": {"include_usage": True} # Critical for token counts on standard endpoints
+                }
+                
                 headers = {'Content-Type': 'application/json'}
                 if api_key: headers['Authorization'] = f'Bearer {api_key}'
+                
                 with requests.post(url, json=payload, headers=headers, stream=True) as r:
                     if r.status_code != 200:
                         yield f"data: {json.dumps({'error': f'API Error {r.status_code}: {r.text}'})}\n\n"
@@ -210,12 +327,20 @@ def chat():
                             decoded = line.decode('utf-8')
                             if decoded.startswith("data: ") and decoded != "data: [DONE]":
                                 try:
-                                    chunk = json.loads(decoded[6:])['choices'][0]['delta'].get('content', '')
-                                    if chunk:
-                                        ai_response_cache += chunk
-                                        yield f"data: {json.dumps({'text': chunk})}\n\n"
+                                    json_data = json.loads(decoded[6:])
+                                    
+                                    if 'choices' in json_data and len(json_data['choices']) > 0:
+                                        chunk = json_data['choices'][0]['delta'].get('content', '')
+                                        if chunk:
+                                            ai_response_cache += chunk
+                                            yield f"data: {json.dumps({'text': chunk})}\n\n"
+                                            
+                                    if 'usage' in json_data and json_data['usage']:
+                                        yield f"data: {json.dumps({'usage': json_data['usage']})}\n\n"
+                                        
                                 except Exception: pass
                                 
+            # Save the complete AI response to the DB
             if thread_id and ai_response_cache:
                 db.save_message(thread_id, "ai", ai_response_cache)
                 

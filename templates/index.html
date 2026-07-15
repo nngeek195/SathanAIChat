@@ -74,28 +74,13 @@
         .s-row-user { align-items: flex-end; }
         .s-row-ai { align-items: flex-start; }
         
-        /* FIX: Ensure user bubbles wrap small text tightly */
-        .s-user { 
-            max-width: 68%; 
-            width: fit-content; 
-            margin-left: auto;
-            background: linear-gradient(145deg, #E87878 0%, #C85050 100%); 
-            color: #fff; 
-            border-radius: 20px 20px 5px 20px; 
-            padding: 0.875rem 1.25rem; 
-            font-size: 0.9375rem; 
-            line-height: 1.68; 
-            white-space: pre-wrap; 
-            word-break: break-word;
-        }
+        .s-user { max-width: 68%; width: fit-content; margin-left: auto; background: linear-gradient(145deg, #E87878 0%, #C85050 100%); color: #fff; border-radius: 20px 20px 5px 20px; padding: 0.875rem 1.25rem; font-size: 0.9375rem; line-height: 1.68; white-space: pre-wrap; word-break: break-word;}
         
-        /* Truncate long user text */
         .user-text-content { overflow: hidden; transition: max-height 0.3s ease; }
         .user-text-content.collapsed { max-height: 120px; position: relative; }
         .user-text-content.collapsed::after { content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 40px; background: linear-gradient(transparent, #D25C5C); }
-        .show-more-btn { background: transparent; border: none; color: #000000; font-size: 0.75rem; cursor: pointer; text-decoration: underline; margin-top: 5px; font-weight: 600;}
+        .show-more-btn { background: transparent; border: none; color: #FFD0D0; font-size: 0.75rem; cursor: pointer; text-decoration: underline; margin-top: 5px; font-weight: 600;}
         
-        /* Edit mode */
         .edit-textarea { width: 100%; min-width: 300px; min-height: 100px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); border-radius: 8px; color: #fff; padding: 10px; font-family: inherit; font-size: 0.9rem; resize: vertical; outline: none;}
         .edit-actions { display: flex; gap: 10px; margin-top: 10px; justify-content: flex-end;}
         .edit-btn { background: #fff; color: #C85050; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600;}
@@ -113,8 +98,7 @@
         .code-wrapper pre { margin: 0; padding: 1rem; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; }
         .s-ai-bubble code { font-family: 'JetBrains Mono', monospace; background: #FBEFEF; color: #B05050; padding: 0.15em 0.45em; border-radius: 5px; }
         .code-wrapper pre code { background: transparent; padding: 0; color: inherit; }
-
-        /* Regenerate Button */
+        
         .regen-wrap { display: flex; justify-content: flex-start; margin-top: 15px; padding-top: 10px; border-top: 1px solid #F9DFDF;}
         .regen-btn { background: transparent; border: 1px solid #F5AFAF; border-radius: 8px; padding: 6px 12px; font-size: 0.75rem; color: #C85050; cursor: pointer; transition: 0.2s; display: flex; gap: 5px; align-items: center; font-weight: 600;}
         .regen-btn:hover { background: #FBEFEF; }
@@ -125,6 +109,21 @@
         .dot:nth-child(2) { animation: satan-blink 1.4s ease-in-out 160ms infinite; }
         .dot:nth-child(3) { animation: satan-blink 1.4s ease-in-out 320ms infinite; }
 
+        /* Multi-Modal Components */
+        .media-attachment-pill { display: flex; align-items: center; gap: 8px; background: #FBEFEF; border: 1px solid #F5AFAF; border-radius: 10px; padding: 6px 12px; margin-bottom: 8px; width: fit-content; font-size: 0.8rem; color: #8A4040; text-decoration: none;}
+        .media-image-frame { max-width: 240px; max-height: 180px; border-radius: 10px; border: 1px solid #F5AFAF; margin-bottom: 8px; display: block; object-fit: cover; cursor: pointer;}
+        
+        .composer-attachments { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 14px; background: #FFFBFB; border: 1px solid #F9DFDF; border-bottom: none; border-radius: 14px 14px 0 0; display: none; }
+        .composer-pill { display: flex; align-items: center; gap: 6px; background: #F5AFAF; color: #2D1515; font-size: 0.75rem; padding: 4px 10px; border-radius: 6px; font-weight: 500; }
+        .composer-pill.img-pill { background: #E87878; color: #fff;}
+        .composer-pill-remove { cursor: pointer; font-weight: bold; color: inherit; opacity: 0.7; }
+        .composer-pill-remove:hover { opacity: 1; }
+
+        /* Dropdown Attachment Menu */
+        .attach-menu { position: absolute; bottom: 55px; left: 10px; background: #fff; border: 1px solid #F9DFDF; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; overflow: hidden; min-width: 200px; z-index: 100; }
+        .attach-menu-item { padding: 12px 14px; font-size: 0.85rem; font-weight: 600; color: #4A2020; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 8px;}
+        .attach-menu-item:hover { background: #FBEFEF; color: #C85050; }
+
         /* Quoting */
         #floating-use-btn { position: absolute; display: none; z-index: 100; background: #2D1515; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transform: translate(-50%, -100%); }
         #floating-use-btn:hover { background: #C85050; }
@@ -132,12 +131,41 @@
         .clear-quote { position: absolute; top: 6px; right: 8px; cursor: pointer; color: #C08080; font-weight: bold; }
         .clear-quote:hover { color: #A03030; }
 
-        /* Footer Input */
-        .s-footer { padding: 0.875rem 1rem 1.25rem; background: linear-gradient(to top, #FCF8F8 72%, transparent); }
-        .s-ibox { display: flex; align-items: flex-end; background: #fff; border: 1.5px solid #F5AFAF; border-radius: 18px; padding: 0.75rem 0.75rem 0.75rem 1.375rem; }
-        .s-textarea { flex: 1; background: transparent; border: none; outline: none; resize: none; font-size: 0.9375rem; padding: 10px 0; font-family: inherit; }
+        /* Footer Input Area */
+        /* Footer Input Area */
+        /* Footer Input Area */
+        .s-footer { padding: 0.875rem 1rem 1.25rem; background: linear-gradient(to top, #FCF8F8 72%, transparent); position: relative; z-index: 100; }
+        .composer-wrapper { display: flex; flex-direction: column; width: 100%; box-shadow: 0 4px 24px rgba(245,175,175,0.16); border-radius: 18px; overflow: visible; position: relative; }
+        .s-ibox { display: flex; align-items: flex-end; background: #fff; border: 1.5px solid #F5AFAF; padding: 0.75rem 0.75rem 0.75rem 1.375rem; border-radius: 18px; position: relative; z-index: 10; }
+        .s-textarea { flex: 1; background: transparent; border: none; outline: none; resize: none; font-size: 0.9375rem; padding: 10px 0; font-family: inherit; max-height: 200px; }
+        .composer-actions { display: flex; gap: 8px; align-items: center; margin-right: 10px; position: relative; }
+        .clip-btn { background: #F9DFDF; border: 1px solid #F5AFAF; width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #8A4040; transition: 0.2s; }
+        .clip-btn:hover { background: #F5AFAF; color: #2D1515; }
         .s-send { width: 38px; height: 38px; border-radius: 12px; background: linear-gradient(145deg, #E87878, #C85050); border: none; color: #fff; cursor: pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center;}
         .s-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Professional Telemetry UI */
+        /* Professional Telemetry UI Elements */
+        .telemetry-pill {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            color: #A06060;
+            margin-top: 6px;
+            padding-left: 30px; /* Aligns cleanly under the bubble start */
+            opacity: 0.85;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: satan-up 0.22s ease;
+        }
+        .telemetry-val {
+            background: #FBEFEF;
+            border: 1px solid #F9DFDF;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #8A4040;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
@@ -196,11 +224,35 @@
                     <span id="quote-text"></span>
                 </div>
                 
-                <div class="s-ibox">
-                    <textarea id="chat-input" class="s-textarea" rows="1" placeholder="Message SatanAI..."></textarea>
-                    <button id="send-btn" class="s-send" onclick="sendMessage()">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
-                    </button>
+                <div class="composer-wrapper">
+                    <div class="composer-attachments" id="composer-attachments-bar"></div>
+                    <div class="s-ibox">
+                        <div class="composer-actions">
+                            
+                            <!-- Unified Attachment Plus Button -->
+                            <button class="clip-btn" onclick="toggleAttachMenu(event)" title="Attach Media">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            </button>
+
+                            <!-- Hidden Dropdown Menu -->
+                            <div id="attach-menu" class="attach-menu" style="display: none;">
+                                <div class="attach-menu-item" onclick="triggerFilePicker()">
+                                    📄 Attach Document (Max 5)
+                                </div>
+                                <div class="attach-menu-item" onclick="triggerImagePicker()">
+                                    🖼️ Attach Image (Max 1)
+                                </div>
+                            </div>
+
+                            <input type="file" id="hidden-file-input" multiple style="display: none;" onchange="handleFileSelection(event)">
+                            <input type="file" id="hidden-image-input" accept="image/*" style="display: none;" onchange="handleImageSelection(event)">
+                        </div>
+                        
+                        <textarea id="chat-input" class="s-textarea" rows="1" placeholder="Message SatanAI..."></textarea>
+                        <button id="send-btn" class="s-send" onclick="sendMessage()">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
         </footer>
@@ -223,16 +275,19 @@
         };
         marked.setOptions({ renderer: renderer });
 
+        const MAX_FILES = 5;
+        const MAX_IMAGE = 1;
+        const MAX_FILE_SIZE_MB = 10;
+        const MAX_IMAGE_SIZE_MB = 10;
+
         let messages = [];
         let currentThreadId = null;
         let lastUserMessageId = null; 
         let lastUserMessageText = "";
-        function scrollToBottom() {
-            const scrollArea = document.getElementById('scroll-area');
-            if (scrollArea) {
-                scrollArea.scrollTop = scrollArea.scrollHeight;
-            }
-        }
+        
+        let activeUploadedFiles = []; 
+        let activeUploadedImage = null;
+        let activeImageBase64 = null;
 
         const logoPath = "{{ url_for('static', filename='logo.png') }}";
         const iconPin = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>`;
@@ -243,7 +298,13 @@
         window.onload = async () => {
             await loadSettings();
             await loadHistory();
+            setupPasteInterceptor();
         };
+
+        function scrollToBottom() {
+            const scrollArea = document.getElementById('scroll-area');
+            if (scrollArea) scrollArea.scrollTop = scrollArea.scrollHeight;
+        }
 
         async function loadSettings() {
             const res = await fetch('/api/settings');
@@ -265,6 +326,244 @@
             });
         }
 
+        // --- Menu UI Logic ---
+        function toggleAttachMenu(event) {
+            console.log("DEBUG: 1. [+] Button was clicked!");
+            event.stopPropagation(); // Stop the click from bubbling up to the document
+            
+            const menu = document.getElementById('attach-menu');
+            console.log("DEBUG: 2. Did we find the menu element in the HTML?", menu !== null);
+            
+            if (menu) {
+                console.log("DEBUG: 3. Menu's current display state is:", menu.style.display);
+                
+                if (menu.style.display === 'flex' || menu.style.display === 'block') {
+                    menu.style.display = 'none';
+                    console.log("DEBUG: 4. Action taken -> Hid the menu (set to none)");
+                } else {
+                    menu.style.display = 'flex';
+                    console.log("DEBUG: 4. Action taken -> Showed the menu (set to flex)");
+                }
+            } else {
+                console.error("DEBUG: FATAL ERROR -> Could not find the <div id='attach-menu'> in the HTML!");
+            }
+        }
+
+        // Global click handler to close the attach menu if you click away
+        document.addEventListener('mousedown', (e) => { 
+            const menu = document.getElementById('attach-menu');
+            
+            // Only run this logic if the menu is actually open
+            if (menu && menu.style.display !== 'none') {
+                const isClickInsideMenu = menu.contains(e.target);
+                
+                // Use .closest() to safely check if the click originated from ANY part of the + button (like the SVG inside it)
+                const isClickOnToggleBtn = e.target.closest('.clip-btn'); 
+                
+                if (!isClickInsideMenu && !isClickOnToggleBtn) {
+                    console.log("DEBUG: Document clicked outside the menu. Auto-closing menu.");
+                    menu.style.display = 'none';
+                }
+            }
+        });
+        // --- Multi-Modal File Pickers & Restraints ---
+        function triggerFilePicker() { 
+            document.getElementById('attach-menu').style.display = 'none';
+            document.getElementById('hidden-file-input').click(); 
+        }
+        function triggerImagePicker() { 
+            document.getElementById('attach-menu').style.display = 'none';
+            document.getElementById('hidden-image-input').click(); 
+        }
+
+        async function handleFileSelection(event) {
+            const files = Array.from(event.target.files);
+            if (activeUploadedFiles.length + files.length > MAX_FILES) {
+                alert(`Upload blocked: You can only attach up to ${MAX_FILES} standard files at once.`);
+                event.target.value = "";
+                return;
+            }
+
+            for (let file of files) {
+                if (file.type.startsWith('image/')) {
+                    alert(`Skipping "${file.name}": Please use the 'Attach Image' option from the menu for images.`);
+                    continue;
+                }
+                if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+                    alert(`Upload blocked: File "${file.name}" exceeds the ${MAX_FILE_SIZE_MB}MB size limit.`);
+                    continue;
+                }
+                await processFileUpload(file, 'file');
+            }
+            event.target.value = "";
+        }
+
+        async function handleImageSelection(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (activeUploadedImage) {
+                alert(`Upload blocked: You can only attach ${MAX_IMAGE} image per message.`);
+                event.target.value = "";
+                return;
+            }
+
+            if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+                alert(`Upload blocked: Image "${file.name}" exceeds the ${MAX_IMAGE_SIZE_MB}MB size limit.`);
+                event.target.value = "";
+                return;
+            }
+
+            if (!confirm("Are you sure your currently selected API Model supports image/multimodal inputs?")) {
+                event.target.value = "";
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onloadend = async function() {
+                activeImageBase64 = {
+                    mime_type: file.type,
+                    base64: reader.result.split(',')[1]
+                };
+                await processFileUpload(file, 'image');
+            };
+            reader.readAsDataURL(file);
+            event.target.value = "";
+        }
+
+        async function processFileUpload(file, type) {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+                
+                if (data.success) {
+                    if (type === 'image') {
+                        activeUploadedImage = { filename: data.filename, url: data.url, type: file.type };
+                    } else {
+                        activeUploadedFiles.push({ filename: data.filename, url: data.url, type: file.type });
+                    }
+                    renderComposerAttachmentBar();
+                }
+            } catch (e) {
+                console.error("Upload failed", e);
+            }
+        }
+
+        // --- Advanced Clipboard Interceptor ---
+        function setupPasteInterceptor() {
+            const textarea = document.getElementById('chat-input');
+            textarea.addEventListener('paste', async (e) => {
+                const clipboardData = e.clipboardData || window.clipboardData;
+                
+                // 1. Check for actual image data in clipboard (e.g. snipping tool)
+                if (clipboardData.items) {
+                    for (let item of clipboardData.items) {
+                        if (item.type.indexOf('image/') !== -1) {
+                            e.preventDefault();
+                            const file = item.getAsFile();
+                            
+                            if (activeUploadedImage) {
+                                alert(`Upload blocked: You can only attach ${MAX_IMAGE} image per message.`);
+                                return;
+                            }
+                            if (!confirm("Are you sure your currently selected API Model supports image/multimodal inputs?")) return;
+                            
+                            const reader = new FileReader();
+                            reader.onloadend = async function() {
+                                activeImageBase64 = {
+                                    mime_type: file.type,
+                                    base64: reader.result.split(',')[1]
+                                };
+                                await processFileUpload(file, 'image');
+                            };
+                            reader.readAsDataURL(file);
+                            return; 
+                        }
+                    }
+                }
+
+                const pastedText = clipboardData.getData('text');
+                
+                // 2. Intercept local path strings (Linux/Windows) from copied OS files
+                if (pastedText && pastedText.match(/^(?:\/|[a-zA-Z]:\\).*\.(png|jpe?g|gif|webp|bmp)$/i)) {
+                    e.preventDefault();
+                    alert("Browser security prevents automatic uploading from pasted local file paths. Please use the '+' menu to attach the image directly.");
+                    return;
+                }
+
+                // 3. Handle massive text blocks
+                if (pastedText && pastedText.length > 2500) {
+                    e.preventDefault();
+                    if (activeUploadedFiles.length >= MAX_FILES) {
+                        alert(`Cannot convert paste to file: You have reached the maximum of ${MAX_FILES} attached files.`);
+                        return;
+                    }
+                    if (confirm("Detected very long text string. Convert to clean .txt attachment pill?")) {
+                        const res = await fetch('/api/upload-text', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ text: pastedText })
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            activeUploadedFiles.push({ filename: data.filename, url: data.url, type: 'text/plain' });
+                            renderComposerAttachmentBar();
+                        }
+                    } else {
+                        textarea.value += pastedText;
+                    }
+                }
+            });
+        }
+
+        function renderComposerAttachmentBar() {
+            const bar = document.getElementById('composer-attachments-bar');
+            bar.innerHTML = "";
+            let hasContent = false;
+
+            if (activeUploadedImage) {
+                hasContent = true;
+                bar.innerHTML += `
+                    <div class="composer-pill img-pill">
+                        <span>🖼️ ${activeUploadedImage.filename}</span>
+                        <span class="composer-pill-remove" onclick="removeImage()">×</span>
+                    </div>`;
+            }
+
+            activeUploadedFiles.forEach((file, index) => {
+                hasContent = true;
+                bar.innerHTML += `
+                    <div class="composer-pill">
+                        <span>📄 ${file.filename}</span>
+                        <span class="composer-pill-remove" onclick="removeFile(${index})">×</span>
+                    </div>`;
+            });
+
+            bar.style.display = hasContent ? 'flex' : 'none';
+        }
+
+        function removeFile(index) {
+            activeUploadedFiles.splice(index, 1);
+            renderComposerAttachmentBar();
+        }
+
+        function removeImage() {
+            activeUploadedImage = null;
+            activeImageBase64 = null;
+            renderComposerAttachmentBar();
+        }
+
+        function clearAllAttachments() {
+            activeUploadedFiles = [];
+            activeUploadedImage = null;
+            activeImageBase64 = null;
+            renderComposerAttachmentBar();
+        }
+
+        // --- History List Actions ---
         async function loadHistory() {
             const res = await fetch('/api/threads');
             const data = await res.json();
@@ -315,6 +614,7 @@
             messages = [];
             currentThreadId = null;
             clearQuote();
+            clearAllAttachments();
             document.getElementById('chat-header-title').innerText = "New Chat";
             document.getElementById('chat-container').innerHTML = `
                 <div class="s-empty" id="empty-state">
@@ -322,6 +622,7 @@
                     <h2 class="s-empty-title">What can I help<br />you with?</h2>
                 </div>`;
             loadHistory();
+            document.getElementById('attach-menu').style.display = 'none';
         }
 
         async function selectThread(id, title) {
@@ -335,6 +636,7 @@
             renderAllMessages();
         }
 
+        // --- Formatting Framework Components Parsers ---
         function renderAllMessages() {
             const container = document.getElementById('chat-container');
             container.innerHTML = "";
@@ -351,12 +653,26 @@
             scrollToBottom();
         }
 
+        function parseAttachmentView(content) {
+            const fileRegex = /\[File Attachment: (.*?) \((.*?)\)\]/g;
+            const imgRegex = /\[Image Attachment: (.*?)\]/g;
+            
+            let html = content;
+            html = html.replace(fileRegex, (match, filename, url) => {
+                return `<a href="${url}" target="_blank" class="media-attachment-pill" style="text-decoration:none;">📄 View Document: ${filename}</a>`;
+            });
+            html = html.replace(imgRegex, (match, url) => {
+                return `<img src="${url}" class="media-image-frame" onclick="window.open('${url}')" title="Click to open source image">`;
+            });
+            return html;
+        }
+
         function appendUserUI(msgId, content) {
             const container = document.getElementById('chat-container');
-            const safeContent = content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            const cleanMarkdown = parseAttachmentView(content);
             const b64 = btoa(unescape(encodeURIComponent(content)));
             
-            const isLong = content.length > 300;
+            const isLong = content.length > 500;
             const textClass = isLong ? "user-text-content collapsed" : "user-text-content";
             const btnHtml = isLong ? `<button class="show-more-btn" onclick="toggleExpand(this)">Show More</button>` : '';
 
@@ -368,7 +684,7 @@
                         <button class="t-btn" onclick="deleteMessage(${msgId})">Delete</button>
                     </div>
                     <div class="s-user">
-                        <div class="${textClass}" id="u-text-${msgId}">${safeContent}</div>
+                        <div class="${textClass}" id="u-text-${msgId}">${cleanMarkdown}</div>
                         ${btnHtml}
                     </div>
                 </div>
@@ -377,11 +693,15 @@
 
         function appendAiUI(msgId, content, linkedUserId, linkedUserText) {
             const container = document.getElementById('chat-container');
+            const cleanMarkdown = parseAttachmentView(content);
             const b64UserText = linkedUserText ? btoa(unescape(encodeURIComponent(linkedUserText))) : '';
             const regenHtml = linkedUserId ? `
                 <div class="regen-wrap">
                     <button class="regen-btn" onclick="regenerate(${msgId}, ${linkedUserId}, '${b64UserText}')">${iconRefresh} Regenerate</button>
                 </div>` : '';
+
+            // Estimating rough token counts for local database history render items since SQLite doesn't hold the transient meta column
+            const estTokens = Math.round(content.length / 4);
 
             container.insertAdjacentHTML('beforeend', `
                 <div class="s-row s-row-ai" id="msg-row-${msgId}">
@@ -390,8 +710,12 @@
                     </div>
                     <div class="s-ai-head"><img src="${logoPath}" class="s-ai-head-avatar">SatanAI</div>
                     <div class="s-ai-bubble" id="ai-bubble-${msgId}">
-                        ${marked.parse(content)}
+                        ${marked.parse(cleanMarkdown)}
                         ${regenHtml}
+                    </div>
+                    <div class="telemetry-pill">
+                        <span>⚡ History Cache:</span>
+                        <span class="telemetry-val">~${estTokens} generated tokens</span>
                     </div>
                 </div>
             `);
@@ -482,51 +806,70 @@
         }
 
         async function sendMessage() {
-            console.log("DEBUG: [1] sendMessage() triggered");
+            console.log("DEBUG: sendMessage() triggered");
             
             const inputEl = document.getElementById('chat-input');
-            const rawText = inputEl.value.trim();
-            const baseUrl = document.getElementById('base-url').value.trim();
-            const modelName = document.getElementById('model-name').value.trim();
-            const apiKey = document.getElementById('api-key').value.trim();
+            const baseUrlEl = document.getElementById('base-url');
+            const modelNameEl = document.getElementById('model-name');
+            const apiKeyEl = document.getElementById('api-key');
 
-            if (!rawText) return;
-            if (!baseUrl || !modelName) {
-                alert("Please ensure Base URL and Model Name are configured.");
+            const rawText = inputEl.value.trim();
+            const baseUrl = baseUrlEl ? baseUrlEl.value.trim() : '';
+            const modelName = modelNameEl ? modelNameEl.value.trim() : '';
+            const apiKey = apiKeyEl ? apiKeyEl.value.trim() : '';
+
+            // Guard rails: Check missing text/attachments
+            if (!rawText && !activeUploadedImage && activeUploadedFiles.length === 0) {
+                console.warn("DEBUG: Blocked empty message transmission");
                 return;
             }
 
-            console.log("DEBUG: [2] Inputs validated:", { modelName, baseUrl, rawText });
+            // User friendly error: Missing configuration parameters
+            if (!baseUrl || !modelName) {
+                alert("⚠️ Configuration Error:\nPlease look at the bottom of your sidebar and enter a valid Base URL and Model Name before chatting.");
+                return;
+            }
 
             let finalUserPayload = rawText;
+            if (activeUploadedImage) {
+                finalUserPayload = `[Image Attachment: ${activeUploadedImage.url}]\n${finalUserPayload}`;
+            }
+            if (activeUploadedFiles.length > 0) {
+                let fileTexts = activeUploadedFiles.map(f => `[File Attachment: ${f.filename} (${f.url})]`).join('\n');
+                finalUserPayload = `${fileTexts}\n${finalUserPayload}`;
+            }
+            
             if (currentQuote !== "") {
-                finalUserPayload = `Context:\n"""\n${currentQuote}\n"""\n\n${rawText}`;
+                finalUserPayload = `Context Reference From Prior Segment:\n"""\n${currentQuote}\n"""\n\n${finalUserPayload}`;
                 clearQuote();
             }
 
+            // Automatically create a thread if one doesn't exist
             if (!currentThreadId) {
-                console.log("DEBUG: [3] No thread ID found. Creating new thread...");
                 try {
-                    const title = rawText.length > 25 ? rawText.substring(0, 25) + "..." : rawText;
+                    let generatedTitle = rawText ? (rawText.length > 25 ? rawText.substring(0, 25) + "..." : rawText) : "File Attachment Thread";
                     const res = await fetch('/api/threads', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ title: title })
+                        body: JSON.stringify({ title: generatedTitle })
                     });
                     const data = await res.json();
                     currentThreadId = data.thread_id;
-                    document.getElementById('chat-header-title').innerText = title;
+                    document.getElementById('chat-header-title').innerText = generatedTitle;
                     loadHistory();
-                    console.log("DEBUG: [4] Thread created successfully with ID:", currentThreadId);
-                } catch (e) {
-                    console.error("DEBUG: [FATAL] Failed to create thread:", e);
-                    return; // Stop execution if DB fails
+                } catch (error) {
+                    console.error("DEBUG Thread Creation Error:", error);
+                    alert("📂 Local Database Error:\nFailed to initialize a new conversation thread inside SQLite database.");
+                    return;
                 }
             }
 
-            console.log("DEBUG: [5] Locking UI and preparing to render bubbles");
-            
+            const structuralImagePayload = activeImageBase64;
+
             inputEl.value = '';
+            clearAllAttachments();
+            document.getElementById('attach-menu').style.display = 'none';
+            
             inputEl.disabled = true;
             document.getElementById('send-btn').disabled = true;
             document.getElementById('thinking-indicator').style.display = 'flex';
@@ -534,13 +877,8 @@
             const empty = document.getElementById('empty-state');
             if(empty) empty.remove();
 
-            try {
-                appendUserUI('temp', finalUserPayload);
-                scrollToBottom();
-                console.log("DEBUG: [6] User bubble rendered");
-            } catch (e) {
-                console.error("DEBUG: [FATAL] appendUserUI crashed:", e);
-            }
+            appendUserUI('temp', finalUserPayload);
+            scrollToBottom();
             
             const contextHistory = messages.slice(-4);
             contextHistory.push({ role: "user", content: finalUserPayload });
@@ -552,10 +890,8 @@
                 <div class="s-ai-head"><img src="${logoPath}" class="s-ai-head-avatar">SatanAI</div>
                 <div class="s-ai-bubble" id="${bubbleId}"></div>
             </div>`);
-            
             const aiBubble = document.getElementById(bubbleId);
             scrollToBottom();
-            console.log("DEBUG: [7] Empty AI bubble rendered. Initiating fetch to /api/chat");
 
             try {
                 const response = await fetch('/api/chat', {
@@ -566,15 +902,33 @@
                         base_url: baseUrl,
                         model: modelName,
                         api_key: apiKey,
-                        thread_id: currentThreadId
+                        thread_id: currentThreadId,
+                        active_image: structuralImagePayload 
                     })
                 });
 
-                console.log("DEBUG: [8] Fetch response received. Status:", response.status);
                 document.getElementById('thinking-indicator').style.display = 'none';
 
+                // Catch standard Server Failures cleanly
                 if (!response.ok) {
-                    aiBubble.innerHTML = `<span style='color:red'><strong>Error ${response.status}</strong></span>`;
+                    let errorMessage = `⚠️ Connection Error (${response.status}): `;
+                    
+                    if (response.status === 400) {
+                        errorMessage += "Bad Request. Your current AI endpoint did not understand the query format.";
+                        if (structuralImagePayload) {
+                            errorMessage += "<br><br><strong>Note:</strong> The AI model or API endpoint you selected does not support image analysis. It is not capable of accepting image uploads.";
+                        }
+                    } else if (response.status === 401 || response.status === 403) {
+                        errorMessage += "Authentication Failed. Your API key is either missing, incorrect, or expired.";
+                    } else if (response.status === 404) {
+                        errorMessage += "Endpoint Not Found. Check your Base URL routing structure.";
+                    } else if (response.status === 503) {
+                        errorMessage += "Service Unavailable. Google/OpenAI backend servers are currently overloaded. Please try again in 10 seconds.";
+                    } else {
+                        errorMessage += "The backend server encountered an unhandled issue processing this turn.";
+                    }
+                    
+                    aiBubble.innerHTML = `<span style='color:#C85050; font-size:0.9rem;'>${errorMessage}</span>`;
                     return;
                 }
 
@@ -582,8 +936,6 @@
                 const decoder = new TextDecoder("utf-8");
                 let buffer = "";
                 let fullAiText = "";
-
-                console.log("DEBUG: [9] Beginning stream decode loop");
 
                 while (true) {
                     const { done, value } = await reader.read();
@@ -598,30 +950,45 @@
                             try {
                                 const data = JSON.parse(line.substring(6));
                                 if (data.error) aiBubble.innerHTML += `<br><span style='color:red'>${data.error}</span>`;
+                                
+                                // Process incoming streaming text chunks
                                 if(data.text) {
                                     fullAiText += data.text;
-                                    aiBubble.innerHTML = marked.parse(fullAiText);
+                                    aiBubble.innerHTML = marked.parse(parseAttachmentView(fullAiText));
                                     scrollToBottom();
                                 }
-                            } catch (e) {
-                                console.error("DEBUG: Stream Parse Error on chunk:", line, e);
-                            }
+
+                                // NEW: Intercept and append token usage analytics inside the shell dynamically
+                                if (data.usage) {
+                                    console.log("DEBUG: Render telemetry data received:", data.usage);
+                                    const telemetryHtml = `
+                                        <div class="telemetry-pill">
+                                            <span>⚡ Context Telemetry:</span>
+                                            <span class="telemetry-val" title="Tokens pushed to API context">${data.usage.prompt_tokens} prompt tokens</span>
+                                            <span class="telemetry-val" title="Tokens generated by model">${data.usage.completion_tokens} completion tokens</span>
+                                            <span class="telemetry-val" title="Total interaction weight">${data.usage.total_tokens} total</span>
+                                        </div>
+                                    `;
+                                    // Inject immediately right below the target AI row row element
+                                    aiBubble.parentElement.insertAdjacentHTML('beforeend', telemetryHtml);
+                                    scrollToBottom();
+                                }
+                            } catch (e) {}
                         }
                     }
                 }
                 
-                console.log("DEBUG: [10] Stream finished. Re-syncing thread from database.");
+                // Re-sync complete UI accurately from DB records
                 selectThread(currentThreadId, document.getElementById('chat-header-title').innerText);
 
             } catch (error) {
-                console.error("DEBUG: [FATAL] Fetch to /api/chat failed:", error);
+                console.error("Network crash track executed:", error);
                 document.getElementById('thinking-indicator').style.display = 'none';
-                aiBubble.innerHTML = "<p style='color:red;'>Network Error.</p>";
+                aiBubble.innerHTML = "<span style='color:#C85050;'>⚠️ Network Offline:<br>Failed to communicate with your local Flask background server. Ensure your terminal script is still running on port 5000.</span>";
             } finally {
                 inputEl.disabled = false;
                 document.getElementById('send-btn').disabled = false;
                 inputEl.focus();
-                console.log("DEBUG: [11] UI Unlocked.");
             }
         }
 
@@ -629,6 +996,7 @@
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
         });
 
+        // --- Selection Quote Mapping ---
         const floatingBtn = document.getElementById('floating-use-btn');
         let currentQuote = "";
 
@@ -642,8 +1010,6 @@
                 floatingBtn.style.display = 'none';
             }
         });
-
-        document.addEventListener('mousedown', (e) => { if (e.target !== floatingBtn) floatingBtn.style.display = 'none'; });
 
         function useSelectedText() {
             currentQuote = window.getSelection().toString().trim();
