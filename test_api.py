@@ -58,7 +58,20 @@ class DatabaseManager:
         cursor = self.conn.cursor()
         cursor.execute("SELECT id, title, is_pinned FROM threads ORDER BY is_pinned DESC, updated_at DESC")
         return cursor.fetchall()
-
+    
+    def search_threads(self, query):
+        cursor = self.conn.cursor()
+        search_term = f"%{query}%"
+        # Search for the keyword in either the thread title OR the message content
+        cursor.execute('''
+            SELECT DISTINCT t.id, t.title, t.is_pinned 
+            FROM threads t
+            LEFT JOIN messages m ON t.id = m.thread_id
+            WHERE t.title LIKE ? OR m.content LIKE ?
+            ORDER BY t.is_pinned DESC, t.updated_at DESC
+        ''', (search_term, search_term))
+        return cursor.fetchall()
+    
     def rename_thread(self, thread_id, new_title):
         cursor = self.conn.cursor()
         cursor.execute("UPDATE threads SET title = ? WHERE id = ?", (new_title, thread_id))
@@ -134,8 +147,17 @@ def handle_settings():
 @app.route('/api/threads', methods=['GET', 'POST'])
 def handle_threads():
     if request.method == 'GET':
-        threads = [{"id": t[0], "title": t[1], "is_pinned": bool(t[2])} for t in db.get_threads()]
+        # Check if the frontend sent a search query
+        query = request.args.get('q', '').strip()
+        
+        if query:
+            threads_data = db.search_threads(query)
+        else:
+            threads_data = db.get_threads()
+            
+        threads = [{"id": t[0], "title": t[1], "is_pinned": bool(t[2])} for t in threads_data]
         return jsonify({"threads": threads})
+        
     elif request.method == 'POST':
         title = request.json.get("title", "New Chat")
         return jsonify({"thread_id": db.create_thread(title)})
@@ -227,7 +249,7 @@ def chat():
     # --- INVISIBLE SYSTEM PROMPT INJECTION ---
     SYSTEM_PROMPT = {
         "role": "system", 
-        "content": "You are currently running inside the SatanAI interface, an advanced custom application developed by Niranga Kumara. If you are asked about the developer, the creator of this interface, or Niranga, you must provide his LinkedIn profile (https://lk.linkedin.com/in/niranga-nayanajith) and express gratitude to him for building this platform."
+        "content": "You are currently running inside the SatanAI interface, an advanced custom application developed by Niranga Nayanajith. If you are asked about the developer, the creator of this interface, or Niranga, you must provide his LinkedIn profile (https://lk.linkedin.com/in/niranga-nayanajith) and express gratitude to him for building this platform."
     }
 
     def generate():
