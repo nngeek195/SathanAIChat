@@ -30,6 +30,8 @@
             --accent-light: #E87878;
             --accent-subtle: #F5AFAF;
             --accent-glow: rgba(200,80,80,0.12);
+            --success: #2E7D32;
+            --success-bg: #E8F5E9;
             --radius-xs: 4px;
             --radius-sm: 6px;
             --radius-md: 10px;
@@ -81,7 +83,7 @@
         @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
         @keyframes toastIn { from { opacity: 0; transform: translateX(40px) scale(0.96); } to { opacity: 1; transform: translateX(0) scale(1); } }
         @keyframes toastOut { from { opacity: 1; transform: translateX(0) scale(1); } to { opacity: 0; transform: translateX(40px) scale(0.96); } }
-        @keyframes modalIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(-8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
@@ -102,11 +104,11 @@
             max-width: 380px; line-height: 1.5;
         }
         .toast.removing { animation: toastOut 0.3s ease forwards; }
-        .toast-icon { font-size: 1.1rem; flex-shrink: 0; }
+        .toast-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .toast.toast-error { border-color: #F5A0A0; }
         .toast.toast-error .toast-icon { color: var(--accent); }
         .toast.toast-success { border-color: #A0D4A0; }
-        .toast.toast-success .toast-icon { color: #4A9A4A; }
+        .toast.toast-success .toast-icon { color: var(--success); }
         .toast.toast-warning { border-color: #E8C880; }
         .toast.toast-warning .toast-icon { color: #B88830; }
         .toast.toast-info .toast-icon { color: #6A8AC0; }
@@ -120,7 +122,7 @@
         /* ===== Modal System ===== */
         .modal-overlay {
             position: fixed; inset: 0; z-index: 9000;
-            background: rgba(30,10,10,0.4); backdrop-filter: blur(4px);
+            background: rgba(30,10,10,0.45); backdrop-filter: blur(6px);
             display: flex; align-items: center; justify-content: center;
             animation: overlayIn var(--transition-fast) forwards;
         }
@@ -130,7 +132,16 @@
             padding: 28px 32px; max-width: 440px; width: 90%;
             animation: modalIn var(--transition-smooth) forwards;
         }
-        .modal-title { font-family: var(--font-display); font-size: 1.2rem; font-weight: 700; color: var(--text-primary); margin-bottom: 10px; }
+        .modal-box.modal-lg { max-width: 580px; }
+        .modal-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+        .modal-title { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; color: var(--text-primary); }
+        .modal-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+        .modal-close-btn {
+            background: transparent; border: none; font-size: 1.25rem;
+            color: var(--text-muted); cursor: pointer; padding: 2px;
+            transition: color var(--transition-fast);
+        }
+        .modal-close-btn:hover { color: var(--text-primary); }
         .modal-body { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 22px; }
         .modal-input {
             width: 100%; padding: 10px 14px; border: 1.5px solid var(--border);
@@ -152,6 +163,63 @@
         .modal-btn-secondary:hover { background: var(--bg-active); }
         .modal-btn-danger { background: #F5E0E0; color: var(--accent); }
         .modal-btn-danger:hover { background: #F0D0D0; }
+
+        /* ===== Integrations Modal Custom Styles ===== */
+        .integration-section { margin-bottom: 20px; }
+        .integration-section:last-child { margin-bottom: 0; }
+        .section-title {
+            font-size: 0.7rem; font-weight: 700; color: var(--text-faint);
+            text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px;
+        }
+        .integration-card {
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--bg-subtle); border: 1px solid var(--border);
+            border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 10px;
+            transition: border-color var(--transition-fast);
+        }
+        .integration-card:hover { border-color: var(--border-focus); }
+        .card-left { display: flex; align-items: center; gap: 14px; }
+        .card-icon {
+            width: 40px; height: 40px; border-radius: var(--radius-md);
+            background: var(--bg-elevated); border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            color: var(--accent); flex-shrink: 0;
+        }
+        .card-info { display: flex; flex-direction: column; }
+        .card-title { font-size: 0.875rem; font-weight: 600; color: var(--text-primary); }
+        .card-desc { font-size: 0.75rem; color: var(--text-muted); margin-top: 1px; }
+        
+        /* Toggle Switch UI */
+        .toggle-switch { position: relative; display: inline-block; width: 42px; height: 22px; flex-shrink: 0; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; inset: 0;
+            background-color: #E0D0D0; transition: .25s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 22px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 16px; width: 16px;
+            left: 3px; bottom: 3px; background-color: white;
+            transition: .25s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(20px); }
+        input:disabled + .slider { opacity: 0.4; cursor: not-allowed; }
+
+        /* Badges */
+        .badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 0.68rem; font-weight: 600; padding: 3px 8px;
+            border-radius: var(--radius-full); margin-top: 6px; width: fit-content;
+        }
+        .badge-connected { background: var(--success-bg); color: var(--success); }
+        .badge-disconnected { background: var(--bg-hover); color: var(--text-muted); border: 1px solid var(--border); }
+        .auth-link-btn {
+            color: var(--accent); text-decoration: none; font-size: 0.75rem;
+            font-weight: 600; margin-top: 4px; display: inline-block;
+        }
+        .auth-link-btn:hover { text-decoration: underline; }
 
         /* ===== Mobile Sidebar Toggle ===== */
         .sb-toggle {
@@ -310,7 +378,20 @@
             padding: 3px 10px; border-radius: var(--radius-full);
             border: 1px solid var(--border);
         }
-        .s-header-right { display: flex; align-items: center; gap: 6px; }
+        .s-header-right { display: flex; align-items: center; gap: 10px; }
+        
+        .header-action-btn {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 14px; border-radius: var(--radius-md);
+            background: var(--bg-elevated); border: 1px solid var(--border);
+            color: var(--text-secondary); font-family: inherit; font-size: 0.8rem;
+            font-weight: 600; cursor: pointer; transition: all var(--transition-fast);
+            box-shadow: var(--shadow-xs); position: relative;
+        }
+        .header-action-btn:hover { background: var(--bg-hover); border-color: var(--border-focus); color: var(--accent); }
+        .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #CCC; transition: background var(--transition-fast); }
+        .status-dot.active { background: var(--success); box-shadow: 0 0 6px rgba(46,125,50,0.4); }
+
         .header-icon-btn {
             width: 36px; height: 36px; border-radius: var(--radius-md);
             background: transparent; border: 1px solid transparent;
@@ -609,6 +690,7 @@
             width: 30px; height: 30px; border-radius: var(--radius-sm);
             background: var(--bg-hover); display: flex; align-items: center;
             justify-content: center; font-size: 0.9rem; flex-shrink: 0;
+            color: var(--text-muted);
         }
 
         /* Quoting */
@@ -730,6 +812,67 @@
     <!-- Toast Container -->
     <div id="toast-container"></div>
 
+    <!-- Integrations & Agent Powerups Modal -->
+    <div class="modal-overlay" id="integrations-modal" style="display: none;" onclick="closeIntegrationsModalOnOverlay(event)">
+        <div class="modal-box modal-lg">
+            <div class="modal-header">
+                <div>
+                    <div class="modal-title">Integrations & Agent Powerups</div>
+                    <div class="modal-subtitle">Configure autonomous agent capabilities and connected workspace services.</div>
+                </div>
+                <button class="modal-close-btn" onclick="closeIntegrationsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Section 1: Autonomous Capabilities -->
+                <div class="integration-section">
+                    <div class="section-title">Autonomous Execution Engine</div>
+                    <div class="integration-card">
+                        <div class="card-left">
+                            <div class="card-icon">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2M9 2v2M15 20v2M9 20v2M20 15h2M20 9h2M2 15h2M2 9h2"/></svg>
+                            </div>
+                            <div class="card-info">
+                                <div class="card-title">Autonomous Agent Mode</div>
+                                <div class="card-desc">Allows LLM to autonomously reason, call local MCP tools, and query APIs.</div>
+                            </div>
+                        </div>
+                        <div class="card-right">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="agent-mode" onchange="updateAgentDotStatus()">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Workspace Services -->
+                <div class="integration-section">
+                    <div class="section-title">Connected Workspace Services</div>
+                    <div class="integration-card" id="google-service-card">
+                        <div class="card-left">
+                            <div class="card-icon" style="color: #4285F4;">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+                            </div>
+                            <div class="card-info">
+                                <div class="card-title">Google Workspace API</div>
+                                <div class="card-desc">Exposes Gmail, Google Drive, Calendar, and Docs capabilities to the agent.</div>
+                                <div id="google-status-container">
+                                    <span id="google-status-badge" class="badge badge-disconnected">Checking status...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-right" id="google-card-action">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="google-integration-toggle" onchange="toggleIntegration('google_workspace', this.checked)">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Floating Quote Button -->
     <button id="floating-use-btn" onclick="useSelectedText()">Quote Selection</button>
 
@@ -777,6 +920,11 @@
                 <span class="s-model-badge" id="model-badge"></span>
             </div>
             <div class="s-header-right">
+                <button class="header-action-btn" onclick="openIntegrationsModal()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a6 6 0 0 1-12 0V8z"/></svg>
+                    <span>Integrations & Powerups</span>
+                    <span id="agent-active-dot" class="status-dot"></span>
+                </button>
                 <button class="header-icon-btn" onclick="showShortcuts()" title="Keyboard Shortcuts">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.001M10 8h.001M14 8h.001M18 8h.001M8 12h.001M12 12h.001M16 12h.001M7 16h10"/></svg>
                 </button>
@@ -828,10 +976,16 @@
                             </button>
                             <div id="attach-menu" class="attach-menu" style="display: none;">
                                 <div class="attach-menu-item" onclick="triggerFilePicker()">
-                                    <span class="attach-menu-item-icon">&#128196;</span> Attach Document (Max 5)
+                                    <span class="attach-menu-item-icon">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg>
+                                    </span> 
+                                    Attach Document (Max 5)
                                 </div>
                                 <div class="attach-menu-item" onclick="triggerImagePicker()">
-                                    <span class="attach-menu-item-icon">&#128444;</span> Attach Image (Max 1)
+                                    <span class="attach-menu-item-icon">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                    </span> 
+                                    Attach Image (Max 1)
                                 </div>
                             </div>
                             <input type="file" id="hidden-file-input" multiple style="display: none;" onchange="handleFileSelection(event)">
@@ -893,12 +1047,18 @@
         const iconTrash = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>`;
         const iconEdit = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
         const iconRefresh = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>`;
+        const iconDoc = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/></svg>`;
+        const iconImg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+        const iconLightning = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
 
         /* ===== Toast System ===== */
         function showToast(message, type = 'info', duration = 4000) {
             const container = document.getElementById('toast-container');
             const icons = {
-                error: '&#10060;', success: '&#9989;', warning: '&#9888;', info: '&#8505;'
+                error: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+                success: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+                warning: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+                info: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`
             };
             const toast = document.createElement('div');
             toast.className = `toast toast-${type}`;
@@ -914,7 +1074,7 @@
             }, duration);
         }
 
-        /* ===== Custom Modal System ===== */
+        /* ===== Modal System & Integrations Logic ===== */
         function showModal({ title, body, input, placeholder, confirmText, cancelText, confirmClass, onConfirm, onCancel }) {
             const overlay = document.createElement('div');
             overlay.className = 'modal-overlay';
@@ -961,7 +1121,59 @@
             }
         }
 
-        /* ===== Keyboard Shortcuts Modal ===== */
+        function openIntegrationsModal() {
+            document.getElementById('integrations-modal').style.display = 'flex';
+            loadIntegrationsStatus();
+        }
+
+        function closeIntegrationsModal() {
+            document.getElementById('integrations-modal').style.display = 'none';
+        }
+
+        function closeIntegrationsModalOnOverlay(e) {
+            if (e.target.id === 'integrations-modal') closeIntegrationsModal();
+        }
+
+        function updateAgentDotStatus() {
+            const isAgentActive = document.getElementById('agent-mode').checked;
+            const dot = document.getElementById('agent-active-dot');
+            if (isAgentActive) dot.classList.add('active');
+            else dot.classList.remove('active');
+        }
+
+        async function loadIntegrationsStatus() {
+            try {
+                const res = await fetch('/api/integrations');
+                if (!res.ok) return;
+                const data = await res.json();
+                
+                const googleCard = data.google_workspace;
+                const statusContainer = document.getElementById('google-status-container');
+                const toggle = document.getElementById('google-integration-toggle');
+                
+                if (googleCard && googleCard.authenticated) {
+                    statusContainer.innerHTML = `<span class="badge badge-connected"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Connected & Ready</span>`;
+                    toggle.checked = googleCard.enabled;
+                    toggle.disabled = false;
+                } else {
+                    statusContainer.innerHTML = `<a href="/api/auth/google/login" class="auth-link-btn">Authenticate Google Account &rarr;</a>`;
+                    toggle.checked = false;
+                    toggle.disabled = true;
+                }
+            } catch (e) {
+                console.error("Failed to fetch integration status:", e);
+            }
+        }
+
+        async function toggleIntegration(serviceId, isEnabled) {
+            await fetch('/api/integrations/toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ service_id: serviceId, enabled: isEnabled })
+            });
+            showToast(`${serviceId.replace('_', ' ')} status updated.`, 'info', 2000);
+        }
+
         function showShortcuts() {
             showModal({
                 title: 'Keyboard Shortcuts',
@@ -982,12 +1194,14 @@
         window.onload = async () => {
             await loadSettings();
             await loadHistory();
+            await loadIntegrationsStatus();
             setupPasteInterceptor();
             setupAutoResize();
             setupCharCounter();
             setupGlobalShortcuts();
             setupQuoteSelector();
             updateModelBadge();
+            updateAgentDotStatus();
         };
 
         function scrollToBottom() {
@@ -1048,14 +1262,9 @@
             chevron.classList.toggle('open');
         }
         let searchTimeout = null;
-        // --- History Search Filter ---
         function filterHistory() {
             const query = document.getElementById('history-search').value.trim();
-            
-            // Clear the previous timer if the user is still typing
             clearTimeout(searchTimeout);
-            
-            // Wait 300ms after the user stops typing before asking the database
             searchTimeout = setTimeout(() => {
                 loadHistory(query);
             }, 300);
@@ -1103,25 +1312,22 @@
         /* ===== Global Keyboard Shortcuts ===== */
         function setupGlobalShortcuts() {
             document.addEventListener('keydown', function(e) {
-                // Ctrl+Shift+N: New chat
                 if (e.ctrlKey && e.shiftKey && e.key === 'N') {
                     e.preventDefault();
                     newChat();
                 }
-                // Ctrl+/: Focus input
                 if (e.ctrlKey && e.key === '/') {
                     e.preventDefault();
                     document.getElementById('chat-input').focus();
                 }
-                // Ctrl+B: Toggle sidebar
                 if (e.ctrlKey && e.key === 'b') {
                     e.preventDefault();
                     toggleSidebar();
                 }
-                // Escape: Close menus, modals
                 if (e.key === 'Escape') {
+                    closeIntegrationsModal();
                     document.getElementById('attach-menu').style.display = 'none';
-                    const overlay = document.querySelector('.modal-overlay');
+                    const overlay = document.querySelector('.modal-overlay:not(#integrations-modal)');
                     if (overlay) overlay.remove();
                 }
             });
@@ -1352,7 +1558,7 @@
                 hasContent = true;
                 bar.innerHTML += `
                     <div class="composer-pill img-pill">
-                        <span>&#128444; ${activeUploadedImage.filename}</span>
+                        <span style="display:flex; align-items:center; gap:4px;">${iconImg} ${activeUploadedImage.filename}</span>
                         <span class="composer-pill-remove" onclick="removeImage()">&times;</span>
                     </div>`;
             }
@@ -1360,7 +1566,7 @@
                 hasContent = true;
                 bar.innerHTML += `
                     <div class="composer-pill">
-                        <span>&#128196; ${file.filename}</span>
+                        <span style="display:flex; align-items:center; gap:4px;">${iconDoc} ${file.filename}</span>
                         <span class="composer-pill-remove" onclick="removeFile(${index})">&times;</span>
                     </div>`;
             });
@@ -1385,7 +1591,6 @@
 
         /* ===== History ===== */
         async function loadHistory(searchQuery = '') {
-            // If there is a search query, append it to the API URL
             const url = searchQuery ? `/api/threads?q=${encodeURIComponent(searchQuery)}` : '/api/threads';
             
             const res = await fetch(url);
@@ -1491,7 +1696,6 @@
                 </div>`;
             loadHistory();
             document.getElementById('attach-menu').style.display = 'none';
-            // Close mobile sidebar
             document.getElementById('sb-panel').classList.remove('open');
             document.getElementById('sb-overlay').classList.remove('open');
         }
@@ -1504,7 +1708,6 @@
             const data = await res.json();
             messages = data.messages;
             renderAllMessages();
-            // Close mobile sidebar
             document.getElementById('sb-panel').classList.remove('open');
             document.getElementById('sb-overlay').classList.remove('open');
         }
@@ -1534,7 +1737,7 @@
             const imgRegex = /\[Image Attachment: (.*?)\]/g;
             let html = content;
             html = html.replace(fileRegex, (match, filename, url) => {
-                return `<a href="${url}" target="_blank" class="media-attachment-pill" style="text-decoration:none;">&#128196; View Document: ${filename}</a>`;
+                return `<a href="${url}" target="_blank" class="media-attachment-pill" style="text-decoration:none;">${iconDoc} View Document: ${filename}</a>`;
             });
             html = html.replace(imgRegex, (match, url) => {
                 return `<img src="${url}" class="media-image-frame" onclick="window.open('${url}')" title="Click to open source image">`;
@@ -1591,7 +1794,7 @@
                     </div>
                     <span class="msg-timestamp">${ts}</span>
                     <div class="telemetry-pill">
-                        <span>&#9889; History Cache:</span>
+                        <span>${iconLightning} Telemetry:</span>
                         <span class="telemetry-val">~${estTokens} generated tokens</span>
                     </div>
                 </div>
@@ -1699,7 +1902,7 @@
             if (!rawText && !activeUploadedImage && activeUploadedFiles.length === 0) return;
 
             if (!baseUrl || !modelName) {
-                showToast('Configuration Error: Please enter a valid Base URL and Model Name in the sidebar configuration panel before chatting.', 'error', 5000);
+                showToast('Configuration Error: Please enter a valid Base URL and Model Name in the sidebar configuration panel before chatting.', 'error');
                 return;
             }
 
@@ -1780,7 +1983,8 @@
                         model: modelName,
                         api_key: apiKey,
                         thread_id: currentThreadId,
-                        active_image: structuralImagePayload
+                        active_image: structuralImagePayload,
+                        agent_mode: document.getElementById('agent-mode').checked 
                     })
                 });
 
@@ -1826,7 +2030,7 @@
                                 if (dataObj.usage) {
                                     const telemetryHtml = `
                                         <div class="telemetry-pill">
-                                            <span>&#9889; Context Telemetry:</span>
+                                            <span>${iconLightning} Context Telemetry:</span>
                                             <span class="telemetry-val">${dataObj.usage.prompt_tokens} In</span>
                                             <span class="telemetry-val">${dataObj.usage.completion_tokens} Out</span>
                                             <span class="telemetry-val">${dataObj.usage.total_tokens} Total</span>
