@@ -5,22 +5,41 @@ import datetime
 import os
 import base64
 import asyncio
-from flask import Flask, render_template, request, Response, jsonify
-from werkzeug.utils import secure_filename
 import subprocess
 import sys
+
+from flask import Flask, render_template, request, Response, jsonify, session, redirect, url_for
+from werkzeug.utils import secure_filename
+from dotenv import load_dotenv
+from authlib.integrations.flask_client import OAuth
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from google_auth_oauthlib.flow import Flow
-from google.oauth2.credentials import Credentials
+from openai import OpenAI
+
+# Load environment variables from .env
+load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.getenv('FLASK_SECRET_KEY', os.urandom(24))
 DB_FILE = "satan_history.db"
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# --------------------------------------------------------------------------
+# OAuth Configuration
+# --------------------------------------------------------------------------
+oauth = OAuth(app)
+google = oauth.register(
+    name='google',
+    client_id=os.getenv('GOOGLE_CLIENT_ID'),
+    client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={
+        'scope': 'openid email profile https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.readonly'
+    }
+)
 
 if len(sys.argv) > 2 and sys.argv[1] == "--run-mcp":
     target_server = sys.argv[2]
@@ -45,6 +64,7 @@ if len(sys.argv) > 2 and sys.argv[1] == "--run-mcp":
     server_module.mcp.run()
     sys.exit(0)
 
+
 class LocalMCPRegistry:
     def __init__(self):
         is_compiled = getattr(sys, 'frozen', False)
@@ -53,13 +73,14 @@ class LocalMCPRegistry:
         def get_args(server_name):
             if is_compiled:
                 return ["--run-mcp", server_name]
-            return [f"mcp_servers/{server_name}.py"]
+            file_name = "local_history" if server_name == "history" else server_name
+            return [f"mcp_servers/{file_name}.py"]
 
         self.configs = {
             "browser": StdioServerParameters(command=base_cmd, args=get_args("browser")),
             "filesystem": StdioServerParameters(command=base_cmd, args=get_args("filesystem")),
             "history": StdioServerParameters(command=base_cmd, args=get_args("history")),
-            "google_workspace": StdioServerParameters(command=base_cmd, args=get_args("google_workspace")), # Google MCP
+            "google_workspace": StdioServerParameters(command=base_cmd, args=get_args("google_workspace")),
             "system_controller": StdioServerParameters(command=base_cmd, args=get_args("system_controller")),
             "network": StdioServerParameters(command=base_cmd, args=get_args("network")),
             "postgres_db": StdioServerParameters(command=base_cmd, args=get_args("postgres_db")),
@@ -71,7 +92,6 @@ class LocalMCPRegistry:
         """Fetches tools only for services that are active/authenticated by the user."""
         llm_tools = []
         for server_key, params in self.configs.items():
-            # If server is Google Workspace, check if user authenticated & enabled it
             if server_key == "google_workspace" and (not active_services or "google_workspace" not in active_services):
                 continue
 
@@ -110,6 +130,7 @@ class LocalMCPRegistry:
         except Exception as e:
             return f"Error executing inner server scope handler {tool_name}: {str(e)}"
 
+
 mcp_registry = LocalMCPRegistry()
 
 # --------------------------------------------------------------------------
@@ -135,10 +156,12 @@ class DatabaseManager:
         
         cursor.execute("SELECT COUNT(*) FROM settings")
         if cursor.fetchone()[0] == 0:
-            cursor.execute("INSERT INTO settings (id, base_url, model_name, api_key) VALUES (1, 'https://generativelanguage.googleapis.com/v1beta', 'gemini-1.5-flash', '')")
+            cursor.execute("INSERT INTO settings (id, base_url, model_name, api_key) VALUES (1, 'https://generativelanguage.googleapis.com/v1beta/openai/', 'gemini-3.6-flash', '')")
             
-        try: cursor.execute("ALTER TABLE threads ADD COLUMN is_pinned INTEGER DEFAULT 0")
-        except sqlite3.OperationalError: pass
+        try:
+            cursor.execute("ALTER TABLE threads ADD COLUMN is_pinned INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
         self.conn.commit()
 
     def get_integration(self, service_id):
@@ -236,7 +259,8 @@ class DatabaseManager:
         cursor = self.conn.cursor()
         cursor.execute("SELECT thread_id, role, id FROM messages WHERE id = ?", (message_id,))
         row = cursor.fetchone()
-        if not row: return
+        if not row:
+            return
         t_id, role, m_id = row
         
         if role == 'ai':
@@ -254,6 +278,7 @@ class DatabaseManager:
         cursor.execute("DELETE FROM messages WHERE thread_id = ? AND id >= ?", (thread_id, from_message_id))
         self.conn.commit()
 
+
 db = DatabaseManager()
 
 # --------------------------------------------------------------------------
@@ -263,9 +288,35 @@ db = DatabaseManager()
 def index():
     return render_template('index.html')
 
+# --- Authentication Routes ---
+@app.route('/api/auth/google/login')
+def google_login():
+    """Initializes OAuth flow."""
+    redirect_uri = url_for('google_authorize', _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+@app.route('/api/auth/google/callback')
+def google_authorize():
+    """Handles OAuth callback and explicitly saves the token dictionary."""
+    try:
+        # Get the token from Authlib
+        token = google.authorize_access_token()
+        if not token:
+            return "Error: Failed to obtain access token from Google.", 400
+            
+        # Save the complete token dictionary to the database
+        db.save_integration("google_workspace", "Google Workspace", True, token)
+        print("\n✅ Google Workspace integration successfully authenticated and saved!")
+        
+        return redirect(url_for('index'))
+    except Exception as e:
+        print(f"\n❌ OAuth Callback Error: {str(e)}")
+        return f"Authentication Error: {str(e)}", 500
+
 @app.route('/api/settings', methods=['GET', 'POST'])
 def handle_settings():
-    if request.method == 'GET': return jsonify(db.get_settings())
+    if request.method == 'GET':
+        return jsonify(db.get_settings())
     else:
         data = request.json
         db.save_settings(data.get('base_url', ''), data.get('model_name', ''), data.get('api_key', ''))
@@ -296,7 +347,8 @@ def pin_thread(thread_id):
 
 @app.route('/api/threads/<int:thread_id>/rename', methods=['PATCH'])
 def rename_thread(thread_id):
-    if title := request.json.get("title"): db.rename_thread(thread_id, title)
+    if title := request.json.get("title"):
+        db.rename_thread(thread_id, title)
     return jsonify({"success": True})
 
 @app.route('/api/threads/<int:thread_id>/messages', methods=['GET'])
@@ -390,7 +442,7 @@ def chat():
 
     SYSTEM_PROMPT = {
         "role": "system", 
-        "content": "You are currently running inside the SatanAI interface, an advanced custom application developed by Niranga Kumara. If you are asked about the developer, the creator of this interface, or Niranga, you must provide his LinkedIn profile (https://lk.linkedin.com/in/niranga-nayanajith) and express gratitude to him for building this platform."
+        "content": "You are currently running inside the SatanAI interface, an advanced custom application developed by Niranga Nayanajith. If you are asked about the developer, the creator of this interface, or Niranga, you must provide his LinkedIn profile (https://lk.linkedin.com/in/niranga-nayanajith) and express gratitude to him for building this platform."
     }
 
     if is_agent_active:
@@ -401,7 +453,6 @@ def chat():
             try:
                 active_services = db.get_all_active_integrations()
 
-                # Fetch tools synchronously for this request lifecycle thread
                 tools = loop.run_until_complete(
                     mcp_registry.fetch_all_agent_tools(active_services=active_services)
                 )
@@ -413,8 +464,15 @@ def chat():
                         "content": m["content"]
                     })
                     
-                url = f"{base_url}/chat/completions" if not base_url.endswith("/chat/completions") else base_url
-                headers = {'Content-Type': 'application/json'}
+                if "generativelanguage" in base_url:
+                    url = f"{base_url}/openai/chat/completions"
+                else:
+                        url = f"{base_url}/chat/completions" if not base_url.endswith("/chat/completions") else base_url
+                # Disguise the Python request as a standard Chrome web browser to bypass Cloudflare/WAF bot protection
+                headers = {
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                }
                 if api_key: headers['Authorization'] = f'Bearer {api_key}'
 
                 max_loops = 5
@@ -423,7 +481,7 @@ def chat():
                         "model": model,
                         "messages": agent_messages,
                         "tools": tools,
-                        "stream": False  # Critical: Must be absolute text payload structure
+                        "stream": False
                     }
                     
                     res = requests.post(url, json=payload, headers=headers)
@@ -436,14 +494,12 @@ def chat():
                         
                     ai_message = res_json['choices'][0]['message']
                     
-                    # Exit evaluation trace if tool invocation demands are absent
                     if not ai_message.get('tool_calls'):
                         final_text = ai_message.get('content', '')
                         if thread_id and final_text: 
                             db.save_message(thread_id, "ai", final_text)
                         return {"text": final_text}
                     
-                    # Append active contextual memory state references
                     agent_messages.append(ai_message)
                     
                     for tool_call in ai_message['tool_calls']:
@@ -463,23 +519,36 @@ def chat():
                         agent_messages.append({
                             "role": "tool",
                             "tool_call_id": tool_call['id'],
+                            "name": full_name,  # Critical: Gemini strictly requires the function name here
                             "content": str(tool_result)
                         })
                 return {"error": "Autonomous execution system trace halted: Context limit metrics hit maximum loop allocation depths."}
             finally:
                 loop.close()
 
-        try:
-            return jsonify(run_agent_loop())
-        except Exception as e:
-            return jsonify({"error": str(e)})
+        def generate_agent_response():
+            try:
+                result = run_agent_loop()
+                yield f"data: {json.dumps(result)}\n\n"
+            except Exception as e:
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            yield "data: [DONE]\n\n"
 
-    # Else fallback loop: Standard streaming setup
+        return Response(generate_agent_response(), mimetype='text/event-stream')
+
+    # Standard streaming setup
+    # Standard streaming setup (General AI Mode)
+    # Standard streaming setup (General AI Mode)
     def generate():
         ai_response_cache = ""
         try:
+            print(f"\n--- GENERAL AI MODE ACTIVATED ---")
+            
+            # --- GOOGLE GEMINI NATIVE ROUTING ---
             if "generativelanguage" in base_url:
                 url = f"{base_url}/models/{model}:streamGenerateContent?alt=sse&key={api_key}"
+                print(f"Routing via Google Native Endpoint: {url}")
+                
                 contents = []
                 system_instruction = {"parts": [{"text": SYSTEM_PROMPT["content"]}]}
                 
@@ -501,11 +570,15 @@ def chat():
                 
                 with requests.post(url, json=payload, headers={'Content-Type': 'application/json'}, stream=True) as r:
                     if r.status_code != 200:
-                        yield f"data: {json.dumps({'error': f'API Error {r.status_code}: {r.text}'})}\n\n"
+                        print(f"\n❌ GOOGLE API REJECTED REQUEST (Status {r.status_code}):\n{r.text}\n")
+                        yield f"data: {json.dumps({'error': f'Google API Error {r.status_code}: {r.text}'})}\n\n"
                         return
+                    
+                    print("\n✅ GOOGLE API ACCEPTED. STREAMING:")
                     for line in r.iter_lines():
                         if line:
                             decoded = line.decode('utf-8')
+                            print(decoded)
                             if decoded.startswith("data: ") and decoded != "data: [DONE]":
                                 try:
                                     json_data = json.loads(decoded[6:])
@@ -521,11 +594,15 @@ def chat():
                                             "total_tokens": json_data['usageMetadata'].get('totalTokenCount', 0)
                                         }
                                         yield f"data: {json.dumps({'usage': usage})}\n\n"
-                                except Exception: pass
+                                except Exception as e:
+                                    print(f"JSON Parse Error: {e}")
+                                    
+            # --- OPENAI / NVIDIA NIM ROUTING ---
             else:
                 url = f"{base_url}/chat/completions" if not base_url.endswith("/chat/completions") else base_url
-                formatted_messages = [SYSTEM_PROMPT]
+                print(f"Routing via Standard OpenAI Endpoint: {url}")
                 
+                formatted_messages = [SYSTEM_PROMPT]
                 for m in messages:
                     formatted_messages.append({"role": "assistant" if m["role"] == "ai" else "user", "content": m["content"]})
                 
@@ -544,15 +621,20 @@ def chat():
                 }
                 
                 headers = {'Content-Type': 'application/json'}
-                if api_key: headers['Authorization'] = f'Bearer {api_key}'
+                if api_key:
+                    headers['Authorization'] = f'Bearer {api_key}'
                 
                 with requests.post(url, json=payload, headers=headers, stream=True) as r:
                     if r.status_code != 200:
+                        print(f"\n❌ STANDARD API REJECTED REQUEST (Status {r.status_code}):\n{r.text}\n")
                         yield f"data: {json.dumps({'error': f'API Error {r.status_code}: {r.text}'})}\n\n"
                         return
+                    
+                    print("\n✅ STANDARD API ACCEPTED. STREAMING:")
                     for line in r.iter_lines():
                         if line:
                             decoded = line.decode('utf-8')
+                            print(decoded)
                             if decoded.startswith("data: ") and decoded != "data: [DONE]":
                                 try:
                                     json_data = json.loads(decoded[6:])
@@ -564,117 +646,20 @@ def chat():
                                             
                                     if 'usage' in json_data and json_data['usage']:
                                         yield f"data: {json.dumps({'usage': json_data['usage']})}\n\n"
-                                except Exception: pass
-                                
+                                except Exception as e:
+                                    print(f"JSON Parse Error: {e}")
+
+            # 6. Save the final text to the database
             if thread_id and ai_response_cache:
                 db.save_message(thread_id, "ai", ai_response_cache)
                 
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        
         yield "data: [DONE]\n\n"
 
     return Response(generate(), mimetype='text/event-stream')
 
-    # Else fallback loop: Standard streaming setup
-    def generate():
-        ai_response_cache = ""
-        try:
-            if "generativelanguage" in base_url:
-                url = f"{base_url}/models/{model}:streamGenerateContent?alt=sse&key={api_key}"
-                contents = []
-                system_instruction = {"parts": [{"text": SYSTEM_PROMPT["content"]}]}
-                
-                for m in messages:
-                    contents.append({"role": "model" if m["role"] == "ai" else "user", "parts": [{"text": m["content"]}]})
-                
-                if active_image and len(contents) > 0 and contents[-1]["role"] == "user":
-                    contents[-1]["parts"].append({
-                        "inlineData": {
-                            "mimeType": active_image["mime_type"],
-                            "data": active_image["base64"]
-                        }
-                    })
-
-                payload = {
-                    "systemInstruction": system_instruction,
-                    "contents": contents
-                }
-                
-                with requests.post(url, json=payload, headers={'Content-Type': 'application/json'}, stream=True) as r:
-                    if r.status_code != 200:
-                        yield f"data: {json.dumps({'error': f'API Error {r.status_code}: {r.text}'})}\n\n"
-                        return
-                    for line in r.iter_lines():
-                        if line:
-                            decoded = line.decode('utf-8')
-                            if decoded.startswith("data: ") and decoded != "data: [DONE]":
-                                try:
-                                    json_data = json.loads(decoded[6:])
-                                    if 'candidates' in json_data and len(json_data['candidates']) > 0:
-                                        chunk = json_data['candidates'][0]['content']['parts'][0]['text']
-                                        ai_response_cache += chunk
-                                        yield f"data: {json.dumps({'text': chunk})}\n\n"
-                                        
-                                    if 'usageMetadata' in json_data:
-                                        usage = {
-                                            "prompt_tokens": json_data['usageMetadata'].get('promptTokenCount', 0),
-                                            "completion_tokens": json_data['usageMetadata'].get('candidatesTokenCount', 0),
-                                            "total_tokens": json_data['usageMetadata'].get('totalTokenCount', 0)
-                                        }
-                                        yield f"data: {json.dumps({'usage': usage})}\n\n"
-                                except Exception: pass
-            else:
-                url = f"{base_url}/chat/completions" if not base_url.endswith("/chat/completions") else base_url
-                formatted_messages = [SYSTEM_PROMPT]
-                
-                for m in messages:
-                    formatted_messages.append({"role": "assistant" if m["role"] == "ai" else "user", "content": m["content"]})
-                
-                if active_image and len(formatted_messages) > 0 and formatted_messages[-1]["role"] == "user":
-                    text_prompt = formatted_messages[-1]["content"]
-                    formatted_messages[-1]["content"] = [
-                        {"type": "text", "text": text_prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:{active_image['mime_type']};base64,{active_image['base64']}"}}
-                    ]
-
-                payload = {
-                    "model": model, 
-                    "messages": formatted_messages, 
-                    "stream": True,
-                    "stream_options": {"include_usage": True}
-                }
-                
-                headers = {'Content-Type': 'application/json'}
-                if api_key: headers['Authorization'] = f'Bearer {api_key}'
-                
-                with requests.post(url, json=payload, headers=headers, stream=True) as r:
-                    if r.status_code != 200:
-                        yield f"data: {json.dumps({'error': f'API Error {r.status_code}: {r.text}'})}\n\n"
-                        return
-                    for line in r.iter_lines():
-                        if line:
-                            decoded = line.decode('utf-8')
-                            if decoded.startswith("data: ") and decoded != "data: [DONE]":
-                                try:
-                                    json_data = json.loads(decoded[6:])
-                                    if 'choices' in json_data and len(json_data['choices']) > 0:
-                                        chunk = json_data['choices'][0]['delta'].get('content', '')
-                                        if chunk:
-                                            ai_response_cache += chunk
-                                            yield f"data: {json.dumps({'text': chunk})}\n\n"
-                                            
-                                    if 'usage' in json_data and json_data['usage']:
-                                        yield f"data: {json.dumps({'usage': json_data['usage']})}\n\n"
-                                except Exception: pass
-                                
-            if thread_id and ai_response_cache:
-                db.save_message(thread_id, "ai", ai_response_cache)
-                
-        except Exception as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
-        yield "data: [DONE]\n\n"
-
-    return Response(generate(), mimetype='text/event-stream')
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

@@ -1,26 +1,33 @@
 import sqlite3
 import json
 import os
+import datetime
 from mcp.server.fastmcp import FastMCP
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
 mcp = FastMCP("google_workspace")
-DB_FILE = "satan_history.db"
+
+# Resolve absolute path to the root directory database to prevent relative path mismatch bugs
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_FILE = os.path.join(BASE_DIR, "satan_history.db")
 
 def get_user_credentials():
-    """Retrieves user's Google OAuth tokens directly from SQLite DB."""
+    """Retrieves user's Google OAuth tokens directly from the absolute SQLite DB path."""
     if not os.path.exists(DB_FILE):
         return None
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT auth_token FROM integrations WHERE service_id = 'google_workspace' AND is_enabled = 1")
-    row = cursor.fetchone()
-    conn.close()
-    
-    if row and row[0]:
-        token_data = json.loads(row[0])
-        return Credentials.from_authorized_user_info(token_data)
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        cursor = conn.cursor()
+        cursor.execute("SELECT auth_token FROM integrations WHERE service_id = 'google_workspace' AND is_enabled = 1")
+        row = cursor.fetchone()
+        conn.close()
+        
+        if row and row[0]:
+            token_data = json.loads(row[0])
+            return Credentials.from_authorized_user_info(token_data)
+    except Exception as e:
+        print(f"Token resolution error: {e}")
     return None
 
 # --- Gmail Tools ---
