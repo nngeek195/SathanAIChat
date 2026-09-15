@@ -37,7 +37,7 @@ google = oauth.register(
     client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
     client_kwargs={
-        'scope': 'openid email profile https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.readonly'
+        'scope': 'openid email profile https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/contacts.readonly'
     }
 )
 
@@ -60,6 +60,8 @@ if len(sys.argv) > 2 and sys.argv[1] == "--run-mcp":
         import mcp_servers.api_client as server_module
     elif target_server == "terminal":
         import mcp_servers.terminal as server_module
+    elif target_server == "google_workspace":
+        import mcp_servers.google_workspace as server_module
         
     server_module.mcp.run()
     sys.exit(0)
@@ -115,7 +117,7 @@ class LocalMCPRegistry:
         return llm_tools
 
     async def run_tool_execution(self, server_key: str, tool_name: str, tool_arguments: dict):
-        """Connects via stdio to execute requested parameters locally."""
+        print(f"[TOOL CALL] server={server_key} tool={tool_name} args={tool_arguments}")  # add this
         params = self.configs.get(server_key)
         if not params:
             return f"Error: Server target description mapping for key '{server_key}' not resolved."
@@ -178,8 +180,14 @@ class DatabaseManager:
         cursor.execute('''INSERT INTO integrations (service_id, service_name, is_enabled, auth_token) 
                           VALUES (?, ?, ?, ?)
                           ON CONFLICT(service_id) DO UPDATE SET 
-                          is_enabled=excluded.is_enabled, auth_token=COALESCE(excluded.auth_token, integrations.auth_token)''',
+                          is_enabled=excluded.is_enabled, 
+                          auth_token=CASE WHEN excluded.auth_token IS NOT NULL THEN excluded.auth_token ELSE integrations.auth_token END''',
                        (service_id, service_name, 1 if is_enabled else 0, token_str))
+        self.conn.commit()
+
+    def disconnect_integration(self, service_id):
+        cursor = self.conn.cursor()
+        cursor.execute("UPDATE integrations SET is_enabled = 0, auth_token = NULL WHERE service_id = ?", (service_id,))
         self.conn.commit()
 
     def get_all_active_integrations(self):
@@ -291,9 +299,13 @@ def index():
 # --- Authentication Routes ---
 @app.route('/api/auth/google/login')
 def google_login():
-    """Initializes OAuth flow."""
+    """Initializes OAuth flow with offline access to ensure refresh token is returned."""
     redirect_uri = url_for('google_authorize', _external=True)
-    return google.authorize_redirect(redirect_uri)
+    return google.authorize_redirect(
+        redirect_uri,
+        access_type='offline',
+        prompt='consent'
+    )
 
 @app.route('/api/auth/google/callback')
 def google_authorize():
@@ -304,6 +316,11 @@ def google_authorize():
         if not token:
             return "Error: Failed to obtain access token from Google.", 400
             
+        # Enrich token dictionary with client credentials and token URI so google.oauth2 can use them
+        token['client_id'] = os.getenv('GOOGLE_CLIENT_ID')
+        token['client_secret'] = os.getenv('GOOGLE_CLIENT_SECRET')
+        token['token_uri'] = "https://oauth2.googleapis.com/token"
+
         # Save the complete token dictionary to the database
         db.save_integration("google_workspace", "Google Workspace", True, token)
         print("\n✅ Google Workspace integration successfully authenticated and saved!")
@@ -312,6 +329,21 @@ def google_authorize():
     except Exception as e:
         print(f"\n❌ OAuth Callback Error: {str(e)}")
         return f"Authentication Error: {str(e)}", 500
+
+@app.route('/api/auth/google/logout', methods=['GET', 'POST'])
+def google_logout():
+    """Logs out / disconnects Google Workspace integration and clears tokens."""
+    db.disconnect_integration("google_workspace")
+    print("\n🔒 Google Workspace integration disconnected and tokens cleared.")
+    if request.method == 'POST' or request.headers.get('Accept') == 'application/json':
+        return jsonify({"success": True, "message": "Google Workspace disconnected successfully"})
+    return redirect(url_for('index'))
+
+@app.route('/api/integrations/<service_id>/disconnect', methods=['POST'])
+def disconnect_service(service_id):
+    """Disconnects any integration service and clears its tokens."""
+    db.disconnect_integration(service_id)
+    return jsonify({"success": True})
 
 @app.route('/api/settings', methods=['GET', 'POST'])
 def handle_settings():
@@ -406,10 +438,31 @@ def upload_large_text():
 @app.route('/api/integrations', methods=['GET'])
 def get_integrations_status():
     google_data = db.get_integration("google_workspace")
+    auth_token = google_data.get("auth_token")
+    
+    is_authenticated = False
+    user_email = None
+    
+    if auth_token and isinstance(auth_token, dict):
+        userinfo = auth_token.get("userinfo") or {}
+        user_email = userinfo.get("email")
+        
+        # If refresh_token exists, we can always refresh even if access token is expired
+        if auth_token.get("refresh_token"):
+            is_authenticated = True
+        else:
+            expires_at = auth_token.get("expires_at")
+            if expires_at:
+                now_ts = datetime.datetime.now(datetime.timezone.utc).timestamp()
+                is_authenticated = (now_ts < expires_at)
+            else:
+                is_authenticated = auth_token.get("access_token") is not None
+                
     return jsonify({
         "google_workspace": {
-            "authenticated": google_data["auth_token"] is not None,
-            "enabled": google_data["is_enabled"]
+            "authenticated": is_authenticated,
+            "enabled": google_data["is_enabled"] if is_authenticated else False,
+            "email": user_email
         }
     })
 
@@ -441,10 +494,66 @@ def chat():
         db.save_message(thread_id, "user", messages[-1]['content'])
 
     SYSTEM_PROMPT = {
-        "role": "system", 
-        "content": "You are currently running inside the SatanAI interface, an advanced custom application developed by Niranga Nayanajith. If you are asked about the developer, the creator of this interface, or Niranga, you must provide his LinkedIn profile (https://lk.linkedin.com/in/niranga-nayanajith) and express gratitude to him for building this platform."
-    }
+    "role": "system",
+    "content": """You are currently running inside the SatanAI interface, an advanced custom application developed by Niranga Nayanajith. If asked about the developer or creator of this interface, provide his LinkedIn profile (https://lk.linkedin.com/in/niranga-nayanajith) and express gratitude to him for building this platform.
 
+You are an AGENTIC assistant with real tools that take real actions on this user's Linux machine. Follow these rules exactly.
+
+## CORE RULES (apply to every tool call)
+1. NEVER claim an action succeeded (opened, launched, started, stopped, sent, saved, found) unless a tool result explicitly confirms it. If a tool result is ambiguous or you're not sure it worked, say so plainly instead of guessing.
+2. If the user's target is ambiguous (e.g. "open the movie" with no filename), use a discovery tool (list_directory, get_recent_history) FIRST to resolve the exact path/name. Never guess a filename or pass a folder path where a specific file is required.
+3. Use the SINGLE most specific tool for the job. Do not use execute_bash_command as a fallback for something a dedicated tool already does — dedicated tools give truthful success/failure; raw shell often does not.
+4. If a tool call fails, report the exact error text back to the user. Do not silently retry more than once with a different guess — ask the user for clarification instead of burning multiple calls trial-and-error style.
+5. Use as few tool calls as possible to accomplish the task. You have a limited number of tool-call rounds per request.
+
+## TOOL ROUTING BY TASK
+
+**Opening/launching a specific file or media (video, image, document):**
+→ filesystem___open_file_or_media with the exact file path.
+→ First confirm the exact filename via filesystem___list_directory if you don't already have it.
+→ NEVER pass a directory to open_file_or_media.
+→ NEVER pass a .desktop file to open_file_or_media — .desktop files are application launchers, not documents, and opening them this way just displays their raw text instead of running the app.
+
+**Opening a terminal window:**
+→ terminal___open_terminal with the target directory.
+→ NEVER use execute_bash_command to launch a terminal emulator, and never scan /usr/share/applications or guess terminal binary names — open_terminal already handles emulator detection.
+
+**Running a shell command that isn't covered by another tool** (e.g. checking disk space, grepping a file, one-off scripting):
+→ terminal___execute_bash_command. This is the fallback tool, not the first choice.
+
+**Reading or listing local files:**
+→ filesystem___read_file / filesystem___list_directory.
+
+**Browsing history:**
+→ local_history___get_recent_history. Only use when the user explicitly asks about their browsing history for a named browser — do not access this proactively as a side effect of another task.
+
+**Fetching a webpage's content:**
+→ browser___fetch_webpage.
+
+**Checking or testing an API endpoint:**
+→ api_client___test_api_endpoint.
+
+**Checking a specific systemd service's status:**
+→ os_services___get_service_status.
+
+**Starting/stopping/restarting a specific systemd service:**
+→ os_services___manage_service. State-changing — confirm the exact service name and action back to the user in your final response.
+
+**Checking overall PostgreSQL / Docker / network infrastructure health:**
+→ system_controller___check_infrastructure_health.
+
+**Starting/stopping core infrastructure (postgresql, docker, etc.):**
+→ system_controller___orchestrate_local_service. State-changing — confirm what was done in your final response.
+
+**Network/port scanning:**
+→ network___run_nmap_scan. Only scan targets the user has explicitly named or that are clearly their own local network. If the target is ambiguous, ask before scanning.
+
+**Gmail / Drive / Calendar / Contacts (only if Google Workspace is connected):**
+→ google_workspace___read_recent_emails / search_drive_files / list_upcoming_calendar_events / list_contacts / search_contacts. If these return an "integration not authenticated" error, tell the user to connect Google Workspace — don't retry.
+
+## FINAL RESPONSE
+After acting, tell the user plainly what happened, based only on tool results — not on what you intended to do."""
+}
     if is_agent_active:
         def run_agent_loop():
             loop = asyncio.new_event_loop()
@@ -496,6 +605,7 @@ def chat():
                     
                     if not ai_message.get('tool_calls'):
                         final_text = ai_message.get('content', '')
+                        print(f"[FINAL RESPONSE] {final_text}")
                         if thread_id and final_text: 
                             db.save_message(thread_id, "ai", final_text)
                         return {"text": final_text}
@@ -513,6 +623,7 @@ def chat():
                             tool_result = loop.run_until_complete(
                                 mcp_registry.run_tool_execution(server_key, actual_tool_name, args)
                             )
+                            print(f"[TOOL RESULT] {tool_result}")
                         except Exception as e:
                             tool_result = f"Local platform agent runtime routing failure: {str(e)}"
                             

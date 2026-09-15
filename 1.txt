@@ -3,3 +3,185 @@ Niranga Nayanajith    sk-6fwwMeyegq6FlzgMxgrz8FWaE1waR71jKHXBNh6codtUmZi7
 sk-6fwwMeyegq6FlzgMxgrz8FWaE1waR71jKHXBNh6codtUmZi7
 
 Niranga Nayanajith 
+
+
+
+import os
+import subprocess
+import platform
+from mcp.server.fastmcp import FastMCP
+
+# Initialize the server
+mcp = FastMCP("filesystem")
+
+@mcp.tool()
+def read_file(filepath: str) -> str:
+    """Reads the text content of a file at the specified local path."""
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception as e:
+        return f"Error reading file: {e}"
+
+@mcp.tool()
+def list_directory(directory_path: str) -> str:
+    """Lists all files and folders in a specified directory."""
+    try:
+        return str(os.listdir(directory_path))
+    except Exception as e:
+        return f"Error listing directory: {e}"
+
+@mcp.tool()
+def open_file_or_media(filepath: str) -> str:
+    """Opens any local file or media with maximum desktop GUI privileges."""
+    print(f"[open_file_or_media] Requested path: {filepath}") 
+    try:
+        if not os.path.exists(filepath):
+            return f"Error: File '{filepath}' does not exist."
+            
+        system = platform.system()
+        
+        # Clone the full OS environment to force UI access from the background
+        env = os.environ.copy()
+        
+        if system == "Linux":
+            # Force the display variable so background processes can access the UI
+            env["DISPLAY"] = env.get("DISPLAY", ":0")
+            # start_new_session=True fully detaches the player from the AI's background process
+            subprocess.Popen(
+                ["xdg-open", filepath], 
+                env=env, 
+                stdout=subprocess.DEVNULL, 
+                stderr=subprocess.DEVNULL, 
+                start_new_session=True
+            )
+        elif system == "Windows":
+            os.startfile(filepath)
+        elif system == "Darwin":
+            subprocess.Popen(["open", filepath], env=env, start_new_session=True)
+        else:
+            return f"Unsupported operating system: {system}"
+            
+        return f"Successfully commanded the host OS to open: {filepath}"
+    except Exception as e:
+        return f"Failed to force-open file: {str(e)}"
+
+if __name__ == "__main__":
+    mcp.run()
+
+
+
+
+import subprocess
+import os
+import shutil
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("terminal")
+
+@mcp.tool()
+def execute_bash_command(command: str) -> str:
+    """Executes a terminal command with maximum unrestricted shell access and GUI inheritance."""
+    try:
+        env = os.environ.copy()
+        env["DISPLAY"] = env.get("DISPLAY", ":0")
+        result = subprocess.run(
+            command, shell=True, capture_output=True, text=True, timeout=30, env=env
+        )
+        if result.returncode == 0:
+            return result.stdout.strip() if result.stdout else "Command executed successfully with no output."
+        return f"Error ({result.returncode}): {result.stderr.strip()}"
+    except subprocess.TimeoutExpired:
+        return "Error: Command execution timed out after 30 seconds."
+    except Exception as e:
+        return f"Terminal execution failed: {str(e)}"
+
+
+def find_terminal_emulator():
+    candidates = ["gnome-terminal", "kgx", "ptyxis", "konsole",
+                  "xfce4-terminal", "tilix", "terminator",
+                  "alacritty", "kitty", "xterm"]
+    for name in candidates:
+        path = shutil.which(name)
+        if path:
+            return name, path
+    return None, None
+
+
+@mcp.tool()
+def open_terminal(directory: str = None) -> str:
+    """Opens a terminal emulator window in the given directory (defaults to home)."""
+    name, path = find_terminal_emulator()
+    if not path:
+        return "Error: No supported terminal emulator found on this system."
+
+    directory = os.path.expanduser(directory or "~")
+    if not os.path.isdir(directory):
+        return f"Error: Directory '{directory}' does not exist."
+
+    flags = {
+        "kgx": ["--working-directory", directory],
+        "ptyxis": ["--working-directory", directory],
+        "gnome-terminal": [f"--working-directory={directory}"],
+        "xfce4-terminal": [f"--working-directory={directory}"],
+        "konsole": ["--workdir", directory],
+    }.get(name, [])
+
+    env = os.environ.copy()
+    env["DISPLAY"] = env.get("DISPLAY", ":0")
+    try:
+        subprocess.Popen(
+            [path] + flags, cwd=directory, env=env,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True
+        )
+        return f"Opened {name} in {directory}."
+    except Exception as e:
+        return f"Failed to launch {name}: {str(e)}"
+
+
+# --- ADD THE NEW TOOL HERE ---
+# --- ADD THE NEW TOOL HERE ---
+@mcp.tool()
+def set_alarm(minutes: float, message: str = "Alarm!") -> str:
+    """Sets an alarm that notifies and plays a sound after the given number of minutes."""
+    try:
+        seconds = int(minutes * 60)
+        env = os.environ.copy()
+        env["DISPLAY"] = env.get("DISPLAY", ":0")
+
+        # The script to run. Removed '|| true' to expose real errors.
+        script = (
+            f'sleep {seconds} && '
+            f'notify-send -u critical "Alarm" "{message}" && '
+            f'paplay /usr/share/sounds/freedesktop/stereo/alarm-clock-elapsed.oga || '
+            f'spd-say "{message}"'
+        )
+        
+        # Route output to a log file instead of DEVNULL to catch DBUS/Audio errors
+        log_path = os.path.expanduser("~/.satan_alarm.log")
+        log_file = open(log_path, "a")
+        
+        subprocess.Popen(
+            ["bash", "-c", script],
+            env=env,
+            stdout=log_file,
+            stderr=log_file,
+            start_new_session=True
+        )
+        return f"Alarm set for {minutes} minutes from now. (Logging to {log_path})"
+    except Exception as e:
+        return f"Failed to set alarm: {str(e)}"
+# --- END NEW TOOL ---
+
+
+if __name__ == "__main__":
+    mcp.run()
+
+
+
+
+bedrock-api-key-YmVkcm9jay5hbWF6b25hd3MuY29tLz9BY3Rpb249Q2FsbFdpdGhCZWFyZXJUb2tlbiZYLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFTSUEyU1RUTk9DSEY0M1ZHRVVKJTJGMjAyNjA4MTYlMkZ1cy1lYXN0LTElMkZiZWRyb2NrJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNjA4MTZUMTUwNTQ1WiZYLUFtei1FeHBpcmVzPTQzMjAwJlgtQW16LVNlY3VyaXR5LVRva2VuPUlRb0piM0pwWjJsdVgyVmpFR2dhQ1hWekxXVmhjM1F0TVNKSE1FVUNJR0o2SjVmQ0hvV09pUkFhOWppb01PTUp0QUxNeGVSU1E1V0ZUamVtJTJCa254QWlFQXlzY3NCeUhNbk9TNTglMkZ3Ykc1MmFET1k1YzRpRlZUTDFuMkNLZWNURGE1OHFxUU1JTUJBQUdndzNNamN4TmpVeU5qZ3hNVEFpREtBTktUUER1RGdxamlNelpDcUdBMUpCRnRmUDJLYkVmVWkwWFByQWZkbSUyQkxMJTJCWWRoVzRrWGtEaGdHUnlCSXdjT3daWk1ZU3U5MWViYjE5Vzc1cXhQellkMjRjeHAlMkYwdWxBMkNDZDZhQ3RmcUdoaFVOckRJcVczQktZeDl0ZENlJTJGaDA3SDhhZiUyRiUyQiUyQnRtTHdjaExSMDV5TzhQRXVaYjdNQU8zdU1OMVJqU0YyQk9PcnpaSDBLNUQ4QXF5TkpEWVdCSDMzbWxPYXFkNUtBV1RoT0lNS1IlMkYxSDR2dklqdm5obmZsY01xVWRlcVI3VW1Ia3R2JTJGdm51JTJCNnhxNXZ1bGJaaHVzbWl0UTRWRUxIQklsa2lYWktjUyUyRjk4bXV6ZkphMnE4YmdYYUZTRU41Zld5YVUlMkJWY1JXR0JGbGZUenVNVFRDS1dwNTVJaG9PS2dvaWl5ZTVPVXhlZUZIMTZmaFJ2aDlaeUszaDJnWnhFQTRqd3Z6WkklMkZuSlI5eVBUOGtnM1laMVdTMXdUZ0YyYVE1d20zeGoyY29IS1FXJTJGZ1lMZk9aZU1CYXB2UTZjSDFWZExaQVRRMmlPcTZrU045RyUyQnZOWWUxZXlQYmVQekVaSEJPNUE0MDVGUENVdDdQdDBSdmg4RU05SlcwYVd2JTJGJTJCQ1NGa3BKYTQxQjd6MjBNcDMxeHh5UW1ObTI2WTdJSG5QaSUyQlNqVlhVblhVd2N2RVBxc1REZWg0WFVCanJlQWxRWSUyQmZZTkhtbUNKQkNvV1N0R0E2QTNQSFV6dElsRDBIN2Z5UDRpdDBKTjVOYjFpSXJYcFFqN2RzWWtsY09kN2pxaEtvbXZWVWc5N09JVEg0WHRIVyUyRlJEJTJGNDJwTlBGc2VnajFuMnhlZzZLZjVVUjJXJTJGTUo1SXJMQXozOHVURWJZbERLMFNQMmVOSmNXJTJCaGVGUFBCSjhlUFlCQVhYc3ElMkJwRkVpU1JHTGhBUWd0bm9Uc2lSV2ViTWhuT2ozJTJCc2tqWkJmMGQlMkJKN1ZxZjFHbktIMkglMkI5MDF1JTJCQTNWMERoQXoydWIlMkIyNm8lMkI4SlN3V1IlMkZzVjBRejAzek9QWHl0dTNzRUNjUW90N3ZBS0hhSnVZWURDQldNciUyQmNEd1ZweUd1MFFheiUyRnY2d1BZSWp1MyUyRjFxJTJGaFBTbzZndlN5QjlDU3BvYWZpaHQlMkZ4OWpBT1NvMnVZMDQ4ZUc0OWMwdTNzRnJzY1hCTnhBc2RtSHczTWVjUiUyQk50cThPeDcxa0piTE9JVVNBVVdQNVU5WFFCdWVNOHNJUkElMkZ5dEJBa1B3TEhHbHc2bHg3Z3lPS282MG5SQk5reFM1YVVUQ2R2UEMlMkYlMkJZR3lJSzZjUjQ1SEI1Tm0ydVhDQVZsVjQmWC1BbXotU2lnbmF0dXJlPTgyZDcwNGNlMjE4ZmVhMTRhZjc5NGFjMzIwYTNiMTk4NWU2NjQ2N2U2NjM3ZWJjYzljODRmNmNkMzZiNjIwNWImWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JlZlcnNpb249MQ==
+
+
+bedrock-api-key-YmVkcm9jay5hbWF6b25hd3MuY29tLz9BY3Rpb249Q2FsbFdpdGhCZWFyZXJUb2tlbiZYLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFTSUEyU1RUTk9DSEFDWVFGNTVXJTJGMjAyNjA4MTYlMkZ1cy1lYXN0LTElMkZiZWRyb2NrJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNjA4MTZUMTU0NDQyWiZYLUFtei1FeHBpcmVzPTQzMjAwJlgtQW16LVNlY3VyaXR5LVRva2VuPUlRb0piM0pwWjJsdVgyVmpFR2dhQ1hWekxXVmhjM1F0TVNKSE1FVUNJUURaTHd0dGxhQ2ZrZWF4ciUyQmpRcWtpUkpSOHdYb05oM21XNWRYbCUyRiUyRldRViUyQkFJZ1Bqb1pBdVRGSm1iU3JOV3ZNSzU2VzBaRVRmWm1ITWIwbjlEV0VXYzVvSHNxb0FNSU1SQUFHZ3czTWpjeE5qVXlOamd4TVRBaURBempQTkpsJTJGVm5qd1FuMFVpcjlBdXBucTVRVlJuUGd0RlclMkJod2tiY0hWbEx6aXRhNTJQd1pvS2tBalp2ejV3JTJGd2tNeGFqVEVSVmg2MnFLR21jQVl3UTd6TnJXTVRRU2lrek9VcHRIVmxqS0JCJTJCVG9XTUV0YkpUcDFYc1NLcHdsSFBRRmk4cmE5TDM0RXU4T2VGUVcxSnNyODlISTh2eWJwSEhsZGlTeE4zTmZVTDVkcjZuNEx3Q0hkTU5KcCUyRjkyTUdrRFd1aXYlMkZPNksxSHkwQnhWUTYlMkJTVHFrNnd3YzRPSFFiUkpReiUyRiUyQnlhc1FRVVByamdPSFZqb2hjJTJGM1RsaXQ4cHNPRkRVcEZYSHRTazUwUWZXb2lyTHBESjJ5cE5ITDNsQWVvQzdEZUVsdlk4WlVjc3RMRTZ0dE1zaE1vJTJCJTJCZEtrMnBDNlpqc0c5Mk5jSVdLWkxNd1UxclZZTUUxalZUTE5SZllSVzRrcTAzSyUyRnJWZiUyQjRIcCUyQm1kdmVqU1JEUTlBOW9iN2hzT2h0RVZzYWZIJTJCdmltJTJCS29mOGNWUmc5YmhGendTaSUyQkZiMXY4ckltNjIwRlp5d3VnNUpFM1lIT0dSaDJBOWlmYUtPYVVEbHFpTU91TXowdDlRTVBsTjh5Vk1aNVVQU0VHTUFJaWpGMG9pOEolMkJhNjl3MXZndmRlR2ZxQ1drYmRLSyUyQmIzalZuakdGVERlaDRYVUJqcmVBaFdoRGVTYmU0akxvMGprWU1PalJuSUY0WEEyQ3dONzBGZ0Q5Q3d2Zm9wYks4aHNSSWk2MnNjTE9nd2o2WGl4b05lUVdLMG5TSzlCUyUyQnhRczRrM0MwNiUyRnJlUGpyT3d2ZW5mRUJjQnklMkJGRW15Ukd4anBkM05qYUt4UmNGSHJ5dlZCcTQwODBJREdZMm1iMmZXcFZuVFFlYm04ZVhYMjRVUVRmMVdhYXAyYU5BYnk4UHdHaXp3cW1mbUd1Z3pqNXNPMXdaVmRRa0hCUXdyMXRhdmdJWDRJZ1RpbDE1VHhJbkdCakNsNk5jVU1BRmVNSVpXbkxiJTJGJTJGS283NWdqVXR6SFprSDBValYwZTdNcHZmdXZWUFgwVlJzTnEzNzBScEdCUDhMbFA2VmJ4Mkk5N1g1NTFGc2ZIdVclMkJFQTFoUjNPcVFtUWYlMkIlMkIlMkJaV0ViTGQ0bFJac0Zja0lINE1WTElMaHBJUmhCdWdZdHluaWhFVHpWeWRpMW0lMkJRS00wRnRNbGFLQlZ1R2JDUmVhVSUyQkxqUUlPUnpVb2tGcEJiN1pnQVpLMmd6MUhYRUhwUFpNcnJJUGJuZWNxcDFBSGpCYktTMUljTGh4eXJzZU5ERExCczByeUtIR0NaJlgtQW16LVNpZ25hdHVyZT02ZWM1Yjg3N2Y0ZGRlYjQyMjQxYjVhNWE2OWVlYTgxNzhmMTc0OWY0N2NhNzE2MTg5MGNhMDdhYjJlM2U1MjY5JlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCZWZXJzaW9uPTE=
