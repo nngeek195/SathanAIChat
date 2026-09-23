@@ -62,42 +62,53 @@ if len(sys.argv) > 2 and sys.argv[1] == "--run-mcp":
         import mcp_servers.terminal as server_module
     elif target_server == "google_workspace":
         import mcp_servers.google_workspace as server_module
+    elif target_server == "tavily":
+        import mcp_servers.tavily as server_module
         
     server_module.mcp.run()
     sys.exit(0)
 
 
 class LocalMCPRegistry:
-    def __init__(self):
-        is_compiled = getattr(sys, 'frozen', False)
-        base_cmd = sys.executable
+    def __init__(self, db_manager):
+        self.db = db_manager
+        self.is_compiled = getattr(sys, 'frozen', False)
+        self.base_cmd = sys.executable
         
-        def get_args(server_name):
-            if is_compiled:
-                return ["--run-mcp", server_name]
-            file_name = "local_history" if server_name == "history" else server_name
-            return [f"mcp_servers/{file_name}.py"]
+        self.server_keys = [
+            "browser", "filesystem", "history", "google_workspace", 
+            "system_controller", "network", "postgres_db", "api_client", 
+            "terminal", "tavily"
+        ]
 
-        self.configs = {
-            "browser": StdioServerParameters(command=base_cmd, args=get_args("browser")),
-            "filesystem": StdioServerParameters(command=base_cmd, args=get_args("filesystem")),
-            "history": StdioServerParameters(command=base_cmd, args=get_args("history")),
-            "google_workspace": StdioServerParameters(command=base_cmd, args=get_args("google_workspace")),
-            "system_controller": StdioServerParameters(command=base_cmd, args=get_args("system_controller")),
-            "network": StdioServerParameters(command=base_cmd, args=get_args("network")),
-            "postgres_db": StdioServerParameters(command=base_cmd, args=get_args("postgres_db")),
-            "api_client": StdioServerParameters(command=base_cmd, args=get_args("api_client")),
-            "terminal": StdioServerParameters(command=base_cmd, args=get_args("terminal"))
-        }
+    def get_args(self, server_name):
+        if self.is_compiled:
+            return ["--run-mcp", server_name]
+        file_name = "local_history" if server_name == "history" else server_name
+        return [f"mcp_servers/{file_name}.py"]
+
+    def get_params(self, server_key):
+        settings = self.db.get_settings()
+        env = os.environ.copy()
+        
+        if server_key == "tavily" and settings.get("tavily_api_key"):
+            env["TAVILY_API_KEY"] = settings["tavily_api_key"]
+            
+        return StdioServerParameters(
+            command=self.base_cmd, 
+            args=self.get_args(server_key),
+            env=env
+        )
 
     async def fetch_all_agent_tools(self, active_services=None):
         """Fetches tools only for services that are active/authenticated by the user."""
         llm_tools = []
-        for server_key, params in self.configs.items():
+        for server_key in self.server_keys:
             if server_key == "google_workspace" and (not active_services or "google_workspace" not in active_services):
                 continue
 
             try:
+                params = self.get_params(server_key)
                 async with stdio_client(params) as (read_stream, write_stream):
                     async with ClientSession(read_stream, write_stream) as session:
                         await session.initialize()
@@ -117,12 +128,12 @@ class LocalMCPRegistry:
         return llm_tools
 
     async def run_tool_execution(self, server_key: str, tool_name: str, tool_arguments: dict):
-        print(f"[TOOL CALL] server={server_key} tool={tool_name} args={tool_arguments}")  # add this
-        params = self.configs.get(server_key)
-        if not params:
+        print(f"[TOOL CALL] server={server_key} tool={tool_name} args={tool_arguments}")
+        if server_key not in self.server_keys:
             return f"Error: Server target description mapping for key '{server_key}' not resolved."
             
         try:
+            params = self.get_params(server_key)
             async with stdio_client(params) as (read_stream, write_stream):
                 async with ClientSession(read_stream, write_stream) as session:
                     await session.initialize()
@@ -131,9 +142,7 @@ class LocalMCPRegistry:
                     return result_text
         except Exception as e:
             return f"Error executing inner server scope handler {tool_name}: {str(e)}"
-
-
-mcp_registry = LocalMCPRegistry()
+        
 
 # --------------------------------------------------------------------------
 # Database Manager Layer
@@ -162,6 +171,12 @@ class DatabaseManager:
             
         try:
             cursor.execute("ALTER TABLE threads ADD COLUMN is_pinned INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+   
+
+        try:
+            cursor.execute("ALTER TABLE settings ADD COLUMN tavily_api_key TEXT DEFAULT '' ")
         except sqlite3.OperationalError:
             pass
         self.conn.commit()
@@ -197,13 +212,13 @@ class DatabaseManager:
 
     def get_settings(self):
         cursor = self.conn.cursor()
-        cursor.execute("SELECT base_url, model_name, api_key FROM settings WHERE id = 1")
+        cursor.execute("SELECT base_url, model_name, api_key, tavily_api_key FROM settings WHERE id = 1")
         row = cursor.fetchone()
-        return {"base_url": row[0], "model_name": row[1], "api_key": row[2]} if row else {}
+        return {"base_url": row[0], "model_name": row[1], "api_key": row[2], "tavily_api_key": row[3]}
 
-    def save_settings(self, base_url, model_name, api_key):
+    def save_settings(self, base_url, model_name, api_key, tavily_api_key):
         cursor = self.conn.cursor()
-        cursor.execute("UPDATE settings SET base_url = ?, model_name = ?, api_key = ? WHERE id = 1", (base_url, model_name, api_key))
+        cursor.execute("UPDATE settings SET base_url = ?, model_name = ?, api_key = ?, tavily_api_key = ? WHERE id = 1", (base_url, model_name, api_key, tavily_api_key))
         self.conn.commit()
 
     def create_thread(self, title="New Chat"):
@@ -288,7 +303,7 @@ class DatabaseManager:
 
 
 db = DatabaseManager()
-
+mcp_registry = LocalMCPRegistry(db_manager=db)
 # --------------------------------------------------------------------------
 # Routes
 # --------------------------------------------------------------------------
@@ -351,7 +366,7 @@ def handle_settings():
         return jsonify(db.get_settings())
     else:
         data = request.json
-        db.save_settings(data.get('base_url', ''), data.get('model_name', ''), data.get('api_key', ''))
+        db.save_settings(data.get('base_url', ''), data.get('model_name', ''), data.get('api_key', ''), data.get('tavily_api_key', ''))
         return jsonify({"success": True})
 
 @app.route('/api/threads', methods=['GET', 'POST'])
@@ -550,6 +565,16 @@ You are an AGENTIC assistant with real tools that take real actions on this user
 
 **Gmail / Drive / Calendar / Contacts (only if Google Workspace is connected):**
 → google_workspace___read_recent_emails / search_drive_files / list_upcoming_calendar_events / list_contacts / search_contacts. If these return an "integration not authenticated" error, tell the user to connect Google Workspace — don't retry.
+**Fetching a webpage's content:**
+→ browser___fetch_webpage.
+
+# --- ADD THIS NEW BLOCK ---
+**Searching the web for current events, general knowledge, or external information:**
+→ tavily___search (or the relevant tool exposed by Tavily). Use this FIRST when the user asks a question about the outside world, news, or explicitly requests a web search. Do not use local filesystem tools or browser tools for general queries unless you already have a specific URL.
+# --------------------------
+
+**Checking or testing an API endpoint:**
+→ api_client___test_api_endpoint.
 
 ## FINAL RESPONSE
 After acting, tell the user plainly what happened, based only on tool results — not on what you intended to do."""

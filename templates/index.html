@@ -915,6 +915,7 @@
                 <input type="text" id="base-url" class="api-input" placeholder="Base URL" />
                 <input type="text" id="model-name" class="api-input" placeholder="Model Name" />
                 <input type="password" id="api-key" class="api-input" placeholder="API Key" />
+                <input type="password" id="tavilyApiKeyInput" class="api-input" placeholder="Tavily API Key (Optional)" />
                 <button class="config-save-btn" onclick="saveSettings()">Save Settings</button>
             </div>
         </div>
@@ -1147,6 +1148,9 @@
             const dot = document.getElementById('agent-active-dot');
             if (isAgentActive) dot.classList.add('active');
             else dot.classList.remove('active');
+            
+            // Save the permission state
+            localStorage.setItem('agentModeEnabled', isAgentActive);
         }
 
         async function loadIntegrationsStatus() {
@@ -1230,6 +1234,12 @@
 
         /* ===== Init ===== */
         window.onload = async () => {
+            // Restore the Agent Mode toggle state
+            const savedAgentMode = localStorage.getItem('agentModeEnabled');
+            if (savedAgentMode === 'true') {
+                document.getElementById('agent-mode').checked = true;
+            }
+
             await loadSettings();
             await loadHistory();
             await loadIntegrationsStatus();
@@ -1258,6 +1268,7 @@
             if (data.base_url) document.getElementById('base-url').value = data.base_url;
             if (data.model_name) document.getElementById('model-name').value = data.model_name;
             if (data.api_key) document.getElementById('api-key').value = data.api_key;
+            if (data.tavily_api_key) document.getElementById('tavilyApiKeyInput').value = data.tavily_api_key; 
             updateModelBadge();
         }
 
@@ -1265,6 +1276,7 @@
             const baseUrl = document.getElementById('base-url').value.trim();
             const modelName = document.getElementById('model-name').value.trim();
             const apiKey = document.getElementById('api-key').value.trim();
+            const tavilyKey = document.getElementById('tavilyApiKeyInput').value.trim();
 
             await fetch('/api/settings', {
                 method: 'POST',
@@ -1272,7 +1284,8 @@
                 body: JSON.stringify({
                     base_url: baseUrl,
                     model_name: modelName,
-                    api_key: apiKey
+                    api_key: apiKey,
+                    tavily_api_key: tavilyKey 
                 })
             });
             
